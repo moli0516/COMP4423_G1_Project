@@ -1,0 +1,119 @@
+"""PR1 contract: class-based association of already-filtered detections."""
+
+import pytest
+
+from deskcheck.domain.bounding_box import BoundingBox
+from deskcheck.domain.detection import Detection
+from deskcheck.matching.object_matcher import ObjectMatcher
+
+
+def make_detection(
+    detection_id: str,
+    class_id: int,
+    *,
+    confidence: float = 0.9,
+    box: BoundingBox | None = None,
+) -> Detection:
+    return Detection(
+        detection_id=detection_id,
+        class_id=class_id,
+        confidence=confidence,
+        box=box if box is not None else BoundingBox(10, 10, 30, 30),
+    )
+
+
+@pytest.fixture
+def matcher() -> ObjectMatcher:
+    return ObjectMatcher()
+
+
+def test_matches_same_class_and_preserves_objects(matcher):
+    before = make_detection("b0", 0)
+    after = make_detection("a0", 0)
+    result = matcher.match([before], [after])
+    assert len(result) == 1
+    assert result[0][0] is before
+    assert result[0][1] is after
+
+
+def test_matches_far_apart_nonoverlapping_boxes(matcher):
+    before = make_detection("b0", 0, box=BoundingBox(0, 0, 20, 20))
+    after = make_detection("a0", 0, box=BoundingBox(900, 700, 920, 720))
+    assert matcher.match([before], [after]) == [(before, after)]
+
+
+def test_different_classes_do_not_match_even_with_identical_boxes(matcher):
+    before = make_detection("b0", 0)
+    after = make_detection("a1", 1)
+    assert matcher.match([before], [after]) == [(before, None), (None, after)]
+
+
+def test_before_only(matcher):
+    before = make_detection("b0", 0)
+    assert matcher.match([before], []) == [(before, None)]
+
+
+def test_after_only(matcher):
+    after = make_detection("a0", 0)
+    assert matcher.match([], [after]) == [(None, after)]
+
+
+def test_both_empty(matcher):
+    assert matcher.match([], []) == []
+
+
+def test_mixed_matches_are_sorted_by_class(matcher):
+    b0, b3 = make_detection("b0", 0), make_detection("b3", 3)
+    a0, a4 = make_detection("a0", 0), make_detection("a4", 4)
+    assert matcher.match([b3, b0], [a4, a0]) == [(b0, a0), (b3, None), (None, a4)]
+
+
+def test_input_order_does_not_change_results(matcher):
+    before = [make_detection("b3", 3), make_detection("b0", 0)]
+    after = [make_detection("a4", 4), make_detection("a0", 0)]
+    expected = matcher.match(before, after)
+    assert matcher.match(list(reversed(before)), list(reversed(after))) == expected
+
+
+def test_does_not_modify_input_lists(matcher):
+    before = [make_detection("b3", 3), make_detection("b0", 0)]
+    after = [make_detection("a4", 4), make_detection("a0", 0)]
+    before_snapshot, after_snapshot = before.copy(), after.copy()
+    matcher.match(before, after)
+    assert all(a is b for a, b in zip(before, before_snapshot, strict=True))
+    assert all(a is b for a, b in zip(after, after_snapshot, strict=True))
+
+
+@pytest.mark.parametrize("side", ["before", "after"])
+def test_rejects_duplicate_class_on_either_side(matcher, side):
+    duplicates = [make_detection("d1", 2), make_detection("d2", 2, confidence=0.1)]
+    before, after = (duplicates, []) if side == "before" else ([], duplicates)
+    with pytest.raises(ValueError, match=f"Duplicate class_id 2 in {side} detections"):
+        matcher.match(before, after)
+
+
+@pytest.mark.parametrize("side", ["before", "after"])
+def test_rejects_same_object_repeated(matcher, side):
+    detection = make_detection("d0", 0)
+    duplicates = [detection, detection]
+    before, after = (duplicates, []) if side == "before" else ([], duplicates)
+    with pytest.raises(ValueError, match=f"Duplicate class_id 0 in {side} detections"):
+        matcher.match(before, after)
+
+
+def test_confidence_is_not_a_matching_filter(matcher):
+    before = make_detection("b0", 0, confidence=0.0)
+    after = make_detection("a0", 0, confidence=1.0)
+    assert matcher.match([before], [after]) == [(before, after)]
+
+
+def test_detection_id_is_not_used_for_association(matcher):
+    before = make_detection("shared-id", 0)
+    after = make_detection("shared-id", 1)
+    assert matcher.match([before], [after]) == [(before, None), (None, after)]
+
+
+def test_no_state_leaks_between_calls(matcher):
+    detection = make_detection("b0", 0)
+    assert matcher.match([detection], []) == [(detection, None)]
+    assert matcher.match([], []) == []
