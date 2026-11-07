@@ -1,0 +1,11 @@
+{
+  "status": "proposed-starting-settings-not-validated",
+  "model": "yolov8n.pt",
+  "data": "data/exports/yolo/dataset.yaml",
+  "imgsz": 640,
+  "epochs": 80,
+  "batch": 8,
+  "optimizer": "AdamW",
+  "lr0": 0.001,
+  "seed": 42
+}
