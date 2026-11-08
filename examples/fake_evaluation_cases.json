@@ -1,0 +1,1839 @@
+[
+  {
+    "case_id": "01_perfect",
+    "title": "四種狀態全部正確",
+    "description": "四個 pair 分別代表 added、removed、moved、unchanged。預測與真實標註相同，檢查理想情況指標。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "removed": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "moved": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "unchanged": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        }
+      },
+      "macro_f1": 1.0,
+      "change_only_macro_f1": 1.0,
+      "false_alarm_rate": 0.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "02_miss_added",
+    "title": "漏報新增物件",
+    "description": "p_added 的預測是明確空清單。應計 added 的 FN，不是缺少整對圖片結果。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1
+        },
+        "removed": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "moved": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "unchanged": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        }
+      },
+      "macro_f1": 0.75,
+      "change_only_macro_f1": 0.6666666666666666,
+      "false_alarm_rate": 0.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "03_extra_object",
+    "title": "多報不存在物件",
+    "description": "p_added 額外預測 class 1 的 added；原本 class 0 仍正確。檢查 added 的 FP。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        },
+        {
+          "class_id": 1,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 1,
+          "fp": 1,
+          "fn": 0
+        },
+        "removed": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "moved": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "unchanged": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        }
+      },
+      "macro_f1": 0.9166666666666666,
+      "change_only_macro_f1": 0.8888888888888888,
+      "false_alarm_rate": 0.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "04_wrong_status",
+    "title": "移動錯判為未改變",
+    "description": "p_moved 仍有正確前後框，但預測 status 改成 unchanged。此案例刻意測試錯誤 status 計分，evaluator 不會重新套用 movement rule。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "removed": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "moved": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1
+        },
+        "unchanged": {
+          "tp": 1,
+          "fp": 1,
+          "fn": 0
+        }
+      },
+      "macro_f1": 0.6666666666666666,
+      "change_only_macro_f1": 0.6666666666666666,
+      "false_alarm_rate": 0.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "05_wrong_class",
+    "title": "位置正確但類別錯誤",
+    "description": "p_added 的 class 0 被預測成 class 1。即使框相同，也必須計一個 FP 和一個 FN。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 1,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 1
+        },
+        "removed": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "moved": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "unchanged": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        }
+      },
+      "macro_f1": 0.75,
+      "change_only_macro_f1": 0.6666666666666666,
+      "false_alarm_rate": 0.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "06_bad_localization",
+    "title": "狀態正確但定位錯誤",
+    "description": "p_moved 的 after box 被移到不重疊位置；before box 仍正確。matched event 兩邊都需符合定位要求，因此 moved 同時增加 FP、FN。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            80,
+            80,
+            100,
+            100
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "removed": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "moved": {
+          "tp": 0,
+          "fp": 1,
+          "fn": 1
+        },
+        "unchanged": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        }
+      },
+      "macro_f1": 0.75,
+      "change_only_macro_f1": 0.6666666666666666,
+      "false_alarm_rate": 0.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "07_no_change_alarm",
+    "title": "沒有變化卻報 moved",
+    "description": "唯一合資格 no-change pair 被預測 moved。誤報率為 1，不是全四個 pairs 的 1/4。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "removed": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "moved": {
+          "tp": 1,
+          "fp": 1,
+          "fn": 0
+        },
+        "unchanged": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1
+        }
+      },
+      "macro_f1": 0.6666666666666666,
+      "change_only_macro_f1": 0.8888888888888888,
+      "false_alarm_rate": 1.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "08_empty_static_prediction",
+    "title": "No-change 圖片全部漏偵測",
+    "description": "p_static 回傳空清單。no-change false alarm 仍為 0，但 unchanged 出現 FN，說明零誤報不等於辨識完美。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": []
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "removed": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "moved": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0
+        },
+        "unchanged": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1
+        }
+      },
+      "macro_f1": 0.75,
+      "change_only_macro_f1": 1.0,
+      "false_alarm_rate": 0.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "09_all_empty",
+    "title": "所有物件都漏報",
+    "description": "四個 pairs 都有結果，但各自都是空事件。事件 macro-F1 為 0；no-change 誤報率仍為 0。",
+    "scope": "event-scoring",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [],
+      "p_removed": [],
+      "p_moved": [],
+      "p_static": []
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": {
+      "counts": {
+        "added": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1
+        },
+        "removed": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1
+        },
+        "moved": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1
+        },
+        "unchanged": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 1
+        }
+      },
+      "macro_f1": 0.0,
+      "change_only_macro_f1": 0.0,
+      "false_alarm_rate": 0.0
+    },
+    "expected_error": null
+  },
+  {
+    "case_id": "10_service_failure",
+    "title": "模擬推論服務失敗",
+    "description": "fake service 在 p_removed 拋出 OSError。runner 必須中止、保留 cause，並且不發布結果目錄。",
+    "scope": "runner-failure",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": null,
+    "expected_error": "RuntimeError"
+  },
+  {
+    "case_id": "11_invalid_eligibility",
+    "title": "錯誤的 no-change eligibility",
+    "description": "刻意把有真實 moved 事件的 pair 指定為 no-change。應在推論開始前拒絕，避免無效分母。",
+    "scope": "preflight-failure",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_moved"
+    ],
+    "expected": null,
+    "expected_error": "ValueError"
+  },
+  {
+    "case_id": "12_duplicate_event",
+    "title": "同一類別重複事件",
+    "description": "p_added 的預測重複同一 class。基本範圍每類只能一筆；runner 應報出該 pair 錯誤，不可默默挑一筆。",
+    "scope": "invalid-service-output",
+    "ground_truth": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "predictions": {
+      "p_added": [
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        },
+        {
+          "class_id": 0,
+          "status": "added",
+          "before_box": null,
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ],
+      "p_removed": [
+        {
+          "class_id": 0,
+          "status": "removed",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": null
+        }
+      ],
+      "p_moved": [
+        {
+          "class_id": 0,
+          "status": "moved",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            40,
+            40,
+            60,
+            60
+          ]
+        }
+      ],
+      "p_static": [
+        {
+          "class_id": 0,
+          "status": "unchanged",
+          "before_box": [
+            10,
+            10,
+            30,
+            30
+          ],
+          "after_box": [
+            10,
+            10,
+            30,
+            30
+          ]
+        }
+      ]
+    },
+    "eligible_no_change_pair_ids": [
+      "p_static"
+    ],
+    "expected": null,
+    "expected_error": "RuntimeError"
+  }
+]
