@@ -1,0 +1,155 @@
+{
+  "repository": "https://github.com/moli0516/COMP4423_A2",
+  "revision": "a9c473a1634ea3ad9be2bea45457a4b9dd53e8a4",
+  "files": [
+    {
+      "source_path": "scripts/split_dataset.py",
+      "sha256": "fbf12574bb2d43af77c3f13758e5ccea2eaf81e399f943e0c93194b740095c4d"
+    },
+    {
+      "source_path": "scripts/update_images_csv.py",
+      "sha256": "9a8734fb40770e501487a0da01d0cbdcc6dcf44a1a363e83c20f819cdcb273ce"
+    },
+    {
+      "source_path": "scripts/validate_dataset.py",
+      "sha256": "7c941874c84df71d4f173dddd81c87ed23c0a3fbe3a54a9d92bd65ce4b58cc41"
+    },
+    {
+      "source_path": "src/__init__.py",
+      "sha256": "300e9717c12741d844ff6a0ee6b4c7fa6a9f7e4ea756aabe4362e1470953be85"
+    },
+    {
+      "source_path": "src/data/__init__.py",
+      "sha256": "a014cdf864fccae11ec3361556c8bbbbf645794a823cbfc3caec4d6a551f4b1d"
+    },
+    {
+      "source_path": "src/data/constants.py",
+      "sha256": "f3f29ceac8f27e98f915d1c405290968511783ea5d3b12a4252e37f18832c2d2"
+    },
+    {
+      "source_path": "src/data/dataset_catalog.py",
+      "sha256": "d1560161cd907f3f8142f5a75c8d9d4cf692e3748680683435111d538f3f1a06"
+    },
+    {
+      "source_path": "src/exceptions/__init__.py",
+      "sha256": "eebf33e94717de9ae8902ec18b364d28e24eedc0638d605b4526e285a46b8d9a"
+    },
+    {
+      "source_path": "src/exceptions/preprocessing_error.py",
+      "sha256": "df80c487a5fa46e30ff9f7e08920b7417b8abc81c752d47a32fde86d434b0a55"
+    },
+    {
+      "source_path": "src/exceptions/training_error.py",
+      "sha256": "9a16182d1f14e199bb2d051e1f0e3222c6ec8c23458afa31b9899fcd47b3ec7d"
+    },
+    {
+      "source_path": "src/experiments/__init__.py",
+      "sha256": "8c2d075e65f70a85d6e6aabeee3953fbab96070a53723780a2f15e580e0b43df"
+    },
+    {
+      "source_path": "src/experiments/polyu_lr_config.py",
+      "sha256": "9ba013ff817db2782488521cd021bd81cd38b80a4f2acebb90cbb0c10918c4a8"
+    },
+    {
+      "source_path": "src/preprocessing/__init__.py",
+      "sha256": "e4630964776516b9e08c282d11aea67bf2218ad680e51c0765cf3319f48472a1"
+    },
+    {
+      "source_path": "src/preprocessing/api.py",
+      "sha256": "6fbb52d493adec15a29aea0f36512af48dfb6e8204ad4a54dfddd69ef46a74d4"
+    },
+    {
+      "source_path": "src/preprocessing/cli.py",
+      "sha256": "2c358deb7c92d93ab5f369d7bb3604cfbedb4a320b151b5dd505a6ba726d26a9"
+    },
+    {
+      "source_path": "src/preprocessing/image_preprocessor.py",
+      "sha256": "7bed281918c021ea2715aaa078943e4e37118357ae57e932a01068edd39f9e92"
+    },
+    {
+      "source_path": "src/preprocessing/preprocessing_config.py",
+      "sha256": "d0234a5e28e7860962078da4cc58e6b86b47f3cf70862aa9e4955434e1feafcf"
+    },
+    {
+      "source_path": "src/utils/__init__.py",
+      "sha256": "39b7b105d45939676bd41ce3701b1285dedb0e1f43b1d3688ad1fc417fdc1eb9"
+    },
+    {
+      "source_path": "src/utils/file_io.py",
+      "sha256": "c2fb97d8037cda166e241e78f976da6cea68677fde4eb944669196da1f208e36"
+    },
+    {
+      "source_path": "src/utils/serialization.py",
+      "sha256": "cfe7305593778f6553e8b9549348e7d205b643767aca86da3bf5dbd25fbe70d2"
+    },
+    {
+      "source_path": "tests/__init__.py",
+      "sha256": "02197ecc9908027f5af85dc051b5e3271d33cf36e93678bfc1d4a06172cf9016"
+    },
+    {
+      "source_path": "tests/preprocessing/__init__.py",
+      "sha256": "aaea966f31c0d9f05fb2987fa1b577b638ef5dc6f603a960d6d9ae7238759d24"
+    },
+    {
+      "source_path": "tests/preprocessing/test_colour_and_orientation.py",
+      "sha256": "227d83c780a148ad8bff03b8d468a79c6693f89bcda97b4bc1b7db7799be1fad"
+    },
+    {
+      "source_path": "tests/preprocessing/test_command_line.py",
+      "sha256": "c430d557779f9b0bedd87922e3184995c63e897e3a8aff20d1ca90dcf784eaf9"
+    },
+    {
+      "source_path": "tests/preprocessing/test_config.py",
+      "sha256": "b2cd39a3d87742cf0b9f5cc0bfc36a78a8a7bdfc2016a8d6372b273e60daeef1"
+    },
+    {
+      "source_path": "tests/preprocessing/test_load_image.py",
+      "sha256": "de26ead3428c2dea13c7cf5a2959bee775e187a6e05de7e7caae2b7671bdff49"
+    },
+    {
+      "source_path": "tests/preprocessing/test_resize.py",
+      "sha256": "ce9896137dbede5616bb433f0984ad8cc576f7a7ea427cbd320117df49aa9768"
+    },
+    {
+      "source_path": "tests/preprocessing/test_source_and_metadata_independence.py",
+      "sha256": "02f2af66cad15e9dccd66159dad11a2fe651bf400ed8737169a864f22cefb70d"
+    },
+    {
+      "source_path": "tests/splitting/__init__.py",
+      "sha256": "6b08518436aaed8465f7c7070fa81da168f7b3266a9db00e40b314380665378e"
+    },
+    {
+      "source_path": "tests/splitting/test_command_line.py",
+      "sha256": "fa8a87c4ee1d63fa524563d9fdecb625376109bcb5d1fc11b808675f66ee4018"
+    },
+    {
+      "source_path": "tests/splitting/test_group_count.py",
+      "sha256": "9d7284650ca44eb1a09c39fe350d89a651027c99fc19f5471d2bc0fdc160ddfe"
+    },
+    {
+      "source_path": "tests/splitting/test_safety.py",
+      "sha256": "402c07d8f42c8bf2e55ef3ece53e39f5198db71207cbfca0bd53d1f2cb38e9ef"
+    },
+    {
+      "source_path": "tests/splitting/test_split_behaviour.py",
+      "sha256": "19e8d4e6891a5b73a9451a277d2973d7e11ef698ad81039cd1c8c7a5668639ad"
+    },
+    {
+      "source_path": "tests/support/__init__.py",
+      "sha256": "9918c5fe29eed5d1ac44418bca6c9334ab3990e8d3b7c324e71ab89974f5106f"
+    },
+    {
+      "source_path": "tests/support/preprocessing_fixtures.py",
+      "sha256": "7cf836434e71ae3d025c07c21ba2cdad42beb28b654460dfe514ef4621a9df9f"
+    },
+    {
+      "source_path": "tests/support/split_loader.py",
+      "sha256": "4a857742bcd297f7a60412525c3c67d104671a497c293a3de91f4d70dd87c969"
+    },
+    {
+      "source_path": "tests/support/splitting_fixtures.py",
+      "sha256": "87ce0c968b36e70f58eac7c2bdbd7859f5dc26d1aad6f5f9df4f3479c2f3f9ed"
+    }
+  ],
+  "limitations": "Static Python imports only. Inspect dynamic imports and non-Python fixtures manually. Not integration-tested."
+}
