@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """Assign train/validation/test splits by location group for COMP4423 Assignment 2.
 
 Save as scripts/split_dataset.py. Whole location groups are assigned to one split,

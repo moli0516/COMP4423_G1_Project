@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """Read-only dataset validator for COMP4423 Assignment 2.
 
 Save as scripts/validate_dataset.py. It never modifies images or CSV files.

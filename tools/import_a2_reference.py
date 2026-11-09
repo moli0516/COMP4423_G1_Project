@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
+
 """Fetch a pinned A2 reference snapshot. No production code is modified."""
 import ast
 import hashlib
 import json
-from pathlib import Path, PurePosixPath
 import shutil
 import tempfile
-from urllib.error import HTTPError
+from pathlib import Path, PurePosixPath
 from urllib.request import Request, urlopen
 
 OWNER = "moli0516"
