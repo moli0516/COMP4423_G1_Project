@@ -1,0 +1,1 @@
+"""Campus image classification package."""
