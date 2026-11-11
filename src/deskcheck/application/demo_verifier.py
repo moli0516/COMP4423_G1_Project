@@ -1,14 +1,24 @@
 """Independently verify the persisted synthetic demo before publishing it."""
 
 import json
+from math import isclose
 from pathlib import Path
 
 from PIL import Image
 
 from deskcheck.application.app_config import AppConfig
+from deskcheck.application.image_pair_loader import ImagePairLoader
+from deskcheck.application.result_renderer import ResultRenderer
 from deskcheck.application.result_serializer import ResultSerializer
 
-EXPECTED_STATUSES = {0: "moved", 1: "removed", 2: "unchanged", 3: "added"}
+# Independent fixture coordinates, not inferred from detector output or filenames.
+# Each entry is (status, before_box, after_box, distance_norm, indicates_change).
+EXPECTED_EVENTS = {
+    0: ("moved", [10, 10, 25, 25], [80, 10, 95, 25], 0.35, True),
+    1: ("removed", [10, 40, 25, 55], None, None, True),
+    2: ("unchanged", [10, 70, 25, 85], [10, 70, 25, 85], 0.0, False),
+    3: ("added", None, [80, 40, 95, 55], None, True),
+}
 EXPECTED_BUNDLE = {
     "result.json",
     "result.csv",
@@ -52,19 +62,46 @@ def verify_demo(staging: Path, expected_before: bytes, expected_after: bytes, co
         raise ValueError("Demo output configuration or provenance does not match the fixture")
 
     records = validated["records"]
-    statuses = {record["class_id"]: record["status"] for record in records}
     changes = sum(record["indicates_change"] for record in records)
-    if len(records) != 4 or statuses != EXPECTED_STATUSES or changes != 3:
-        raise ValueError("Demo output does not match independently expected fixture statuses")
+    if len(records) != 4 or {r["class_id"] for r in records} != set(EXPECTED_EVENTS):
+        raise ValueError("Demo output does not match independently expected fixture classes")
+    for record in records:
+        class_id = record["class_id"]
+        status, before_box, after_box, distance, indicates_change = EXPECTED_EVENTS[class_id]
+        observed_distance = record["distance_norm"]
+        distance_matches = (
+            observed_distance is None if distance is None
+            else type(observed_distance) in (int, float)
+            and isclose(observed_distance, distance, rel_tol=0, abs_tol=1e-12)
+        )
+        if (
+            record["status"] != status
+            or record["before_box"] != before_box
+            or record["after_box"] != after_box
+            or not distance_matches
+            or record["indicates_change"] is not indicates_change
+            or record["movement_threshold"] != config.movement_threshold
+            or record["before_detection_id"] != (f"fake-{class_id}" if before_box else None)
+            or record["after_detection_id"] != (f"fake-{class_id}" if after_box else None)
+        ):
+            raise ValueError(f"Demo fixture geometry or object evidence differs for class {class_id}")
+    if changes != 3:
+        raise ValueError("Demo fixture change count differs from expected")
 
     if (bundle / "result.json").read_bytes() != serializer.to_json(validated).encode("utf-8"):
         raise ValueError("Demo JSON bytes differ from canonical serialization")
     if (bundle / "result.csv").read_bytes() != serializer.to_csv(validated).encode("utf-8"):
         raise ValueError("Demo CSV bytes differ from canonical serialization")
 
-    for name in ("annotated_before.png", "annotated_after.png"):
+    frames = ImagePairLoader().load(expected_before, expected_after, "c-demo")
+    expected_images = ResultRenderer().render(*frames, validated)
+    for name, expected_image in zip(
+        ("annotated_before.png", "annotated_after.png"), expected_images
+    ):
         with Image.open(bundle / name) as img:
             if img.format != "PNG" or img.size != (160, 120):
                 raise ValueError(f"Invalid demo annotation dimensions or format: {name}")
-            img.verify()
+            img.load()
+            if img.mode != expected_image.mode or img.tobytes() != expected_image.tobytes():
+                raise ValueError(f"Demo annotation pixels differ from rendered fixture: {name}")
     return len(records), changes
