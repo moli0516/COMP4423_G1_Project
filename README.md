@@ -2,13 +2,13 @@
 
 ## Part C ? Jerry-C integration candidate
 
-See [Jerry-C handoff and running instructions](docs/jerry_c_handoff.md) for the current synthetic UI, CLI, tests and exact real-model limitations. Install this checkout with `python -m pip install -r requirements.txt`. The UI, CLI and B evaluation runner use the same comparison service; no trained inference is claimed.
+See [Jerry-C handoff](docs/jerry_c_handoff.md) for the tested synthetic UI/CLI and [real model integration](docs/REAL_MODEL_INTEGRATION.md) for the new local-checkpoint YOLO backend and CLI. Install this checkout with `python -m pip install -r requirements.txt`. A real-model inference run is NOT verified until A provides the actual .pt checkpoint and a frozen configuration.
 
 
 COMP4423 Group 1: compare two desk photographs and report object changes.
 
 ## Status
-Project skeleton only. No trained model, dataset, detector implementation or working UI is included yet. Placeholder entry points fail explicitly.
+On the unmerged `Jerry-C` branch, Part C now includes a working Streamlit UI, image-pair loading, B-rule comparison, JSON/CSV/PNG export, synthetic demo, and a separately gated YOLO inference adapter with local-checkpoint CLI. The YOLO integration was verified with an injected model-API stub, **not an actual trained checkpoint**. The real DeskCheck dataset, training implementation, checkpoint and academic test metrics are not bundled. The training entrypoint remains a placeholder owned by A. Do not use synthetic detections as real model evidence.
 
 ## Setup
 Python 3.11+. From repository root:

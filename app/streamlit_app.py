@@ -2,6 +2,7 @@
 
 import hashlib
 import io
+import os
 import sys
 from pathlib import Path
 
@@ -16,22 +17,37 @@ from deskcheck.application.comparison_service import ComparisonService
 from deskcheck.application.demo_pair import make_demo_pair
 from deskcheck.application.image_pair_loader import ImagePairLoader
 from deskcheck.application.presentation import comparison_rows, comparison_wipe
+from deskcheck.application.real_settings import RealSettings
 from deskcheck.application.result_renderer import ResultRenderer
 from deskcheck.application.result_serializer import ResultSerializer
 from deskcheck.detection.fake_color_detector import FakeColorDetector
+from deskcheck.detection.ultralytics_detector import UltralyticsDetector
 
 st.set_page_config(page_title="DeskCheck | Jerry-C", layout="wide")
 st.title("DeskCheck: before / after review")
 st.caption("COMP4423 | Part C | One comparison service for the UI, CLI and B evaluation runner")
-st.warning(
-    "FAKE / SYNTHETIC ONLY. Exact-color shapes exercise real B software. "
-    "No trained model is loaded; these results do not measure real-world accuracy."
-)
 source = st.radio(
     "Image source",
-    ["Synthetic demo", "Upload synthetic images", "Inspect real photos (no AI)"],
+    [
+        "Synthetic demo",
+        "Upload synthetic images",
+        "Inspect real photos (no AI)",
+        "Run local YOLO checkpoint",
+    ],
     horizontal=True,
 )
+real_mode = source == "Run local YOLO checkpoint"
+if real_mode:
+    st.info(
+        "REAL MODEL PATH: only an explicitly supplied local .pt checkpoint with a "
+        "verified SHA256 is accepted. No trained model is bundled; no auto-download. "
+        "This does not establish model accuracy."
+    )
+else:
+    st.warning(
+        "FAKE / SYNTHETIC ONLY for detections. Exact-color shapes exercise real B software. "
+        "The manual-photo mode performs no AI inference."
+    )
 pair_id = st.text_input("Pair ID", "c-demo")
 photo_only = source == "Inspect real photos (no AI)"
 before_bytes = after_bytes = None
@@ -49,18 +65,34 @@ else:
         after_bytes = after_upload.getvalue()
     if photo_only:
         st.info("Manual inspection only: no detector is called and no AI result is exported.")
+    elif real_mode:
+        st.info("Upload two real photos with the same oriented dimensions to use the local model.")
     else:
         st.info(
             "Use the exact-color synthetic PNG fixtures. Ordinary photographs are not "
             "supported by the fake detector. No detections does not establish no change."
         )
 
-try:
-    config = AppConfig.load(ROOT / "configs" / "fake_app.json")
-except (OSError, ValueError, TypeError) as error:
-    st.session_state.pop("c_bundle", None)
-    st.error(f"Configuration cannot be loaded: {error}")
-    st.stop()
+config = None
+real_config_path = os.environ.get("DESKCHECK_REAL_CONFIG", "").strip()
+if real_mode:
+    if not real_config_path:
+        st.error(
+            "Real model is not configured. Set DESKCHECK_REAL_CONFIG to a JSON file "
+            "with the existing checkpoint path and SHA256. Fake detections will not run."
+        )
+    else:
+        try:
+            config = RealSettings.load(real_config_path)
+        except (OSError, ValueError, TypeError) as error:
+            st.error(f"Real model unavailable: {error}. No synthetic fallback.")
+else:
+    try:
+        config = AppConfig.load(ROOT / "configs" / "fake_app.json")
+    except (OSError, ValueError, TypeError) as error:
+        st.session_state.pop("c_bundle", None)
+        st.error(f"Configuration cannot be loaded: {error}")
+        st.stop()
 
 # Hash each input separately: concatenation delimiters can collide in arbitrary bytes.
 parts = (
@@ -68,7 +100,8 @@ parts = (
     hashlib.sha256(after_bytes or b"").hexdigest(),
     pair_id,
     source,
-    config.config_sha256,
+    config.config_sha256 if config is not None else "real-unconfigured",
+    real_config_path if real_mode else "",
 )
 fingerprint = hashlib.sha256(repr(parts).encode("utf-8")).hexdigest()
 if st.session_state.get("c_fingerprint") != fingerprint:
@@ -95,11 +128,13 @@ if frames is not None:
         for column, frame, side in zip(st.columns(2), frames, ("Before", "After")):
             column.image(frame.array, caption=f"{side} | {frame.width} x {frame.height}")
 
-if st.button("Compare synthetic inputs", disabled=frames is None or photo_only, type="primary"):
+button_label = "Compare using local YOLO" if real_mode else "Compare synthetic inputs"
+if st.button(button_label, disabled=frames is None or photo_only or config is None, type="primary"):
     st.session_state.pop("c_bundle", None)
     try:
         # Reuse the exact decoded pixels for inference, rendering and downloads.
-        result = ComparisonService(detector=FakeColorDetector(), config=config).compare_frames(
+        detector = UltralyticsDetector(config) if real_mode else FakeColorDetector()
+        result = ComparisonService(detector=detector, config=config).compare_frames(
             *frames, pair_id=pair_id
         )
         images = ResultRenderer().render(*frames, result)
@@ -132,11 +167,11 @@ if bundle is not None and not photo_only:
     two.metric("Changes", changes)
     if count == 0:
         st.info(
-            "No target objects detected by the synthetic detector. This is not proof "
+            "No target objects detected by this detector. This is not proof "
             "that a real scene has no changes."
         )
     elif changes == 0:
-        st.success("All detected synthetic objects are unchanged under the configured rule.")
+        st.success("All detected objects are unchanged under the configured rule.")
     view = st.radio(
         "Result view", ["Annotated", "Originals", "Before / after wipe"], horizontal=True
     )
