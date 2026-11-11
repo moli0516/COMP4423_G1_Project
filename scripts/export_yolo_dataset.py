@@ -1,16 +1,4 @@
-"""Owner A: CLI wrapper for YOLO dataset export.
-
-Usage:
-    python scripts/export_yolo_dataset.py \
-        --annotations data/annotations/pairs.jsonl \
-        --manifest data/manifests/splits.json \
-        --output data/exports/yolo
-
-Exit codes:
-    0  export written
-    1  runtime error
-    2  invalid input / config
-"""
+"""Owner A: CLI wrapper for YOLO dataset export."""
 
 from __future__ import annotations
 
@@ -21,7 +9,7 @@ from pathlib import Path
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Export DeskCheck annotations to YOLO label format.",
+        description="Export DeskCheck annotations to YOLO label + image layout.",
     )
     parser.add_argument("--annotations", type=Path, required=True,
                         help="Path to data/annotations/pairs.jsonl")
@@ -29,6 +17,8 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="Path to data/manifests/splits.json")
     parser.add_argument("--output", type=Path, required=True,
                         help="Output directory for images/labels/dataset.yaml")
+    parser.add_argument("--force", action="store_true",
+                        help="Allow writing into a non-empty output directory.")
     return parser
 
 
@@ -49,7 +39,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        summary = export(pairs, manifest, args.output)
+        summary = export(pairs, manifest, args.output, overwrite=args.force)
+    except FileExistsError as exc:
+        print(f"refusing: {exc}", file=sys.stderr)
+        return 2
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"export failed: {exc}", file=sys.stderr)
+        return 2
     except Exception as exc:  # noqa: BLE001
         print(f"runtime error: {exc}", file=sys.stderr)
         return 1
@@ -59,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"images written:  {summary.images_written}")
     print(f"labels written:  {summary.labels_written}")
     print(f"empty labels:    {summary.empty_labels_written}")
+    print(f"shared dedup:    {summary.shared_images_deduplicated}")
     return 0
 
 
