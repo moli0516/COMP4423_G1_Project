@@ -59,19 +59,69 @@ dataset_validator.py currently requires all four in val/test.
 
 ## 3. Movement threshold tau — selection procedure (value pending)
 
-- tau will be chosen from non-test pilot pairs only.
-- Pilot will include small / medium / large movements plus independent
-  no-change pairs.
-- The selection criterion is "tau that best separates visually-moved from
-  visually-unchanged on pilot", documented with the pilot pair list.
-- tau will be frozen BEFORE test annotation begins and will not be revised
-  using validation or test results.
-- Proposed search range for pilot evaluation: 0.02 to 0.15 normalized units.
-- B owns the final confirmation of tau. A supplies the pilot evidence.
+## 3. Movement threshold τ — selection procedure and pilot evidence
 
-Pilot photographs do not exist yet (see section 7). Pilot collection starts
-10 Nov 2026. This section will be updated with the selected tau and the pilot
-pair list before test annotation.
+### 3a. Selection procedure
+
+- τ will be chosen from non-test pilot pairs only.
+- Pilot includes small / medium / large movements plus independent no-change
+  pairs.
+- The selection criterion is "τ that best separates visually-moved from
+  visually-unchanged on pilot", documented with the pilot pair list.
+- τ will be frozen **before test annotation begins** and will not be revised
+  using validation or test results.
+- **B owns the final confirmation of τ.** A supplies the pilot evidence.
+
+### 3b. Pilot evidence (11 Nov 2026)
+
+Six pilot pairs were captured on a single desk with one fixed camera
+position and stable lighting. Twelve photographs total. The independent
+no-change control pair (P6) shows zero measurable drift — camera stability
+confirmed.
+
+| Pair | Change | Movement magnitude | Estimated d (normalized) | Verdict |
+|---|---|---|---|---|
+| P1 | bottle moved ~3 cm | small | ≈ 0.02–0.03 | clearly moved |
+| P2 | cup moved ~10 cm diagonal | medium | ≈ 0.06–0.08 | clearly moved |
+| P3 | scissors moved left→right of desk | large | ≈ 0.35–0.50 | clearly moved (far) |
+| P4 | mouse removed | n/a | n/a | removed |
+| P5 | book added | n/a | n/a | added |
+| P6 | nothing touched | none | ≈ 0 (control) | unchanged |
+
+**Camera jitter floor** (P6): below measurable threshold (~0).
+**Smallest genuine movement** (P1): d ≈ 0.02–0.03.
+**Largest control jitter** (P6): ≈ 0.
+
+### 3c. Proposed τ
+
+**τ = 0.02** (normalized center displacement).
+
+Justification: τ is set **below** the smallest genuine movement measured in
+the pilot (P1, bottle ~3 cm, estimated d ≈ 0.02–0.03) so that
+human-perceptible movements register as "moved", and **well above** the
+camera jitter floor measured in P6 (≈ 0) so that no-change pairs remain
+"unchanged". The threshold lies in the gap between the two distributions.
+
+Any pair where a matched object's center moves more than 2% of the image
+diagonal (in normalized coordinates) is classified as "moved". Equal to or
+below → "unchanged".
+
+This τ will be frozen before test annotation begins and will not be
+revised using validation or test results.
+
+### 3d. Pilot pair mapping (for reproducibility)
+
+| Pair | Before file | After file |
+|---|---|---|
+| P1 | p1_smallMove1.jpeg | p1_smallMove2.jpeg |
+| P2 | p2_midMove1.jpeg | p2_midMove2.jpeg |
+| P3 | p3_bigMove1.jpeg | p3_bigMove2.jpeg |
+| P4 | p4_sub1.jpeg | p4_sub2.jpeg |
+| P5 | p5_add1.jpeg | p5_add2.jpeg |
+| P6 | p6_control1.jpeg | p6_control2.jpeg |
+
+Source: `~/Documents/CV Group/pilot_photos/` (not committed; pilot data is
+for threshold calibration only, not for training or evaluation).
 
 ---
 

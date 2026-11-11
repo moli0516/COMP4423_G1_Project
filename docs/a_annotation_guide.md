@@ -42,7 +42,7 @@ and for how we judge predicted labels during error analysis.
 
 | class_id | name | include | exclude |
 |---|---|---|---|
-| 0 | bottle | tall rigid container with a neck: water bottle, sauce bottle, spray bottle | cups, thermoses without a neck (a mug is a cup) |
+| 0 | bottle | tall rigid container with a neck: water bottle, sauce bottle, hot sauce bottle, spray bottle | cups, thermoses without a neck (a mug is a cup) |
 | 1 | cup | short open-top drinking vessel: mug, teacup, paper cup | bottles, glasses with stems taller than wide |
 | 2 | keyboard | full or compact typing keyboard with a grid of keys | keypads, remote controls, piano keyboards |
 | 3 | mouse | pointing device with buttons under the palm | trackpads, trackballs |
