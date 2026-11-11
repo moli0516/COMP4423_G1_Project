@@ -60,3 +60,20 @@ Local raw receipts and screenshots are retained outside Git in the separate `COM
 
 ## Publication permission boundary
 The first push was rejected solely because it modified `.github/workflows/ci.yml` without the required workflow scope. No credentials or scopes were changed. The publishable branch restores the exact upstream workflow and adds the required UI test dependency through ordinary project packaging. The workflow proposal and the original local commit are preserved; this does not claim the optional Windows CI job is active.
+
+## 11 November follow-up: demo publication integrity
+
+The one-command demo now checks actual persisted files before announcing a successful
+synthetic demonstration or publishing its output directory. It verifies the original
+generated images remain unchanged, all four required bundle files are present, JSON
+and CSV bytes match canonical serialization, both PNG annotations are readable at
+the expected dimensions, and the configured synthetic provenance, four class statuses
+and three change flags match the known fixture.
+
+The old launcher trusted a child process exit code and printed hard-coded success
+counts. Two regression tests first demonstrated that a child reporting success
+without a bundle, or with false JSON counts, resulted in false success (RED).
+After the validation change, targeted tests and the full local suite passed:
+**259 passed**, Ruff, pip check and Git whitespace checks succeeded. This gate
+covers synthetic fixture publication only; it does not certify real YOLO detection,
+a frozen A/B interface, human assessment, or the university grading requirements.

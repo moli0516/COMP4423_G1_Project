@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from deskcheck.application.demo_pair import make_demo_pair
+from deskcheck.application.demo_verifier import verify_demo
 
 
 def main() -> int:
@@ -47,10 +48,16 @@ def main() -> int:
             )
             if result.returncode:
                 raise RuntimeError(result.stderr or result.stdout or "C CLI failed")
+            records, changes = verify_demo(
+                staging, before, after, ROOT / "configs" / "fake_app.json"
+            )
             if target.exists() or target.is_symlink():
                 raise FileExistsError("Demo target appeared during publication")
             staging.rename(target)
-        print(f"Synthetic demo ready: {target}; 4 records, 3 changes. No trained inference.")
+        print(
+            f"Synthetic demo ready: {target}; {records} records, {changes} changes. "
+            "No trained inference."
+        )
         return 0
     except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as error:
         print(f"Demo failed: {error}", file=sys.stderr)
