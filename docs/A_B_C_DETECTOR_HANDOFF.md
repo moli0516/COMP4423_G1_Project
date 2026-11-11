@@ -1,6 +1,6 @@
 # Jerry-C / A / B detector handoff — 2026-11-11
 
-**Status: proposal for A/B confirmation; not a shared-interface merge.**
+**Status: A has accepted the ownership split in [PR #9](https://github.com/moli0516/COMP4423_G1_Project/pull/9#issuecomment-6799449023); B's threshold approval and the shared-interface merge remain separate and pending.**
 
 ## Evidence and exact revisions
 
@@ -21,14 +21,14 @@
   adapter: it consumes C's immutable canonical frame and maps YOLO results
   to B `Detection`. It has API-stub tests but **no A checkpoint acceptance**.
 
-## Proposed single-owner resolution (A and B must confirm)
+## Accepted A/C detector ownership (B's threshold decisions still pending)
 
-| Responsibility | Proposed owner | Integration decision |
+| Responsibility | Agreed owner | Integration decision |
 |---|---|---|
 | Capture, annotations, frozen split, training, checkpoint and model metadata | A | A supplies actual files and identifies the training run |
-| Model loading, model-specific resize/letterbox reversal, confidence, backend NMS, class map, canonical boxes | A | **One authoritative production detector adapter after review.** A can adopt/review C's provisional `UltralyticsDetector` or supply its own. C must not ship both as competing production defaults |
+| Model loading, model-specific resize/letterbox reversal, confidence, backend NMS, class map, canonical boxes | A | **A explicitly accepted ownership on PR #9 and will adopt/review/refine C's provisional `UltralyticsDetector` on A's branch. One final production adapter, not two competing defaults.** |
 | Canonical RGB and EXIF decode once, same sized photo pair, source bytes, UI/CLI export | C | `ImagePairLoader`; no model-specific resizing in this layer |
-| C-to-A immutable frame boundary while PR #8 is not merged | C | `FrameDetectorAdapter` is a temporary explicit conversion seam. Remove unnecessary conversion once a single shared `ImageFrame` contract is merged and tested |
+| C-to-A immutable frame boundary while PR #8 is not merged | C | A expressly agreed to keep `FrameDetectorAdapter` temporarily. The current C-local frame has only `array` plus derived `width`/`height`; A's proposed shared frame has explicit `array`, `width`, `height`, `source_path=None`. Do not replace the seam before PR #8 merges and both sides switch together. |
 | Confidence filter, one-per-class matching, four statuses, accepted movement threshold | B | Reuse B's actual unchanged implementations. A/B approve threshold and NMS ownership |
 | Event and no-change evaluation on frozen truth | B | Inject the same production `ComparisonService` into `EvaluationRunner`; do not evaluate through a separate model path |
 | Runtime config/provenance | C application, validated against A/B-approved values | `RealSettings.load` is source-bound; an effective field change cannot retain the old `config_sha256` through direct construction or `dataclasses.replace` |
@@ -45,6 +45,8 @@ RealSettings.load(config.json, verify .pt SHA256)
        |-> CLI full JSON/CSV/PNG
        |-> B EvaluationRunner (injected ComparisonService)
 ```
+
+**Runtime version evidence:** No Ultralytics version was installed or actually exercised in the Jerry-C verification. The optional requirement `ultralytics>=8,<9` is a declaration, **not** a tested pin. Real-mode tests injected an API stub; A should select/pin a version from real checkpoint testing. This was answered directly in [PR #9](https://github.com/moli0516/COMP4423_G1_Project/pull/9#issuecomment-6805949361).
 
 **Current code**: UI `app/streamlit_app.py` and CLI
 `scripts/predict_real_pair.py` both load `RealSettings`,
@@ -65,8 +67,7 @@ of B's matching/status logic.
    `EvaluationRunner`; compare records, source hashes and errors.
 4. Freeze the checkpoint/config/model version; never substitute fake
    detector output on failure.
-5. A and B review adapter ownership and the final single `ImageFrame`
-   boundary before merging PR #9 into `main`.
+5. A has accepted detector ownership; A and C must still verify the final single `ImageFrame` type and implemented A-owned adapter after PR #8 merges. B must approve threshold/evaluation settings before PR #9 can be considered for merging into `main`.
 
 **Not claimed:** actual YOLO model loading, real photo accuracy, merged PR #8,
-approved A/B thresholds, real-model parity or final group acceptance.
+approved B thresholds, real-model parity or final group acceptance.

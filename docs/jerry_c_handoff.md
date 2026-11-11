@@ -58,9 +58,7 @@ Regression cases are in `tests/c_real/test_real_settings_provenance.py`.
 The *local checkpoint entrypoint exists* in UI/CLI, with stub-based tests,
 but A's real checkpoint has **not** been used or accepted.
 
-Detector ownership and exact A/B/C interface decisions are recorded in
-`docs/A_B_C_DETECTOR_HANDOFF.md`. The final A-approved adapter and
-UI/CLI/runner real-photo parity remain pending. Do not claim model accuracy
+A explicitly accepted the detector ownership split and agreed to adopt/refine C's candidate on A's branch (PR #9 comment `6799449023`). C answered the version and frame questions in PR #9 comment `6805949361`: **no tested Ultralytics runtime version** (stub only), and C's `ImageFrame` is not yet the A PR #8 shared class. These decisions are recorded in `docs/A_B_C_DETECTOR_HANDOFF.md`. The final merged A-approved adapter and UI/CLI/runner real-photo parity remain pending. Do not claim model accuracy
 from synthetic or injected-stub tests.
 
 ## Remaining team handoff

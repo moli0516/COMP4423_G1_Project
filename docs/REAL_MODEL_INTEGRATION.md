@@ -92,9 +92,7 @@ reloading a new source and produces a new hash. This protects the metadata
 used in UI, CLI and B runner. It is a safeguard against accidental
 in-process changes, not a substitute for A's real-checkpoint validation.
 
-Detector ownership is **not frozen by Jerry-C**. The current
-`UltralyticsDetector` is C's candidate only; A owns the final model loader,
-preprocess/NMS/box restoration and may adopt or replace the candidate.
+A **accepted** production detector ownership in [PR #9](https://github.com/moli0516/COMP4423_G1_Project/pull/9#issuecomment-6799449023): the current `UltralyticsDetector` is a C-provided candidate that A will adopt, review and refine on A's own branch. A owns final model loading, preprocessing, backend NMS, class mapping and pixel-box restoration. No separate competing C production detector should be created.
 C keeps image loading, UI/CLI orchestration, exports, and an explicit frame
 adapter seam; B owns filter/matcher/change/evaluation. See
 [A/B/C detector handoff](A_B_C_DETECTOR_HANDOFF.md).
