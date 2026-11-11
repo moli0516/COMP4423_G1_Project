@@ -210,3 +210,15 @@ def test_missing_outputs_block_inherits_from_baseline(tmp_path: Path) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
     cfg = load(path, baseline_path=base)
     assert cfg.outputs == {"run_dir": "runs/E0"}
+
+def test_rejects_test_split_for_checkpoint_selection(tmp_path: Path) -> None:
+    base = _baseline(tmp_path)
+    payload = json.loads(base.read_text(encoding="utf-8"))
+    payload["validation"] = {
+        "split": "test",
+        "checkpoint_selection": "best_mAP50_95",
+    }
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="validation.split must be 'val'"):
+        load(path, baseline_path=base)

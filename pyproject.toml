@@ -7,7 +7,7 @@ name = "deskcheck"
 version = "0.1.0"
 description = "COMP4423 paired desk-image change analysis"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["numpy>=1.26,<3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "ruff>=0.8,<1"]

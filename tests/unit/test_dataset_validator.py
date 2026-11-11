@@ -5,10 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from deskcheck.data.dataset_catalog import load_annotations, load_manifest
-from deskcheck.data.dataset_validator import audit, REQUIRED_CLASS_IDS
+from deskcheck.data.dataset_validator import REQUIRED_CLASS_IDS, audit
 
 
 def _pair(

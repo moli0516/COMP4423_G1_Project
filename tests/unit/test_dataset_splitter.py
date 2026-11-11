@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from deskcheck.data.dataset_catalog import AnnotatedPair, SplitManifest
-from deskcheck.data.dataset_splitter import TARGET_RATIOS, split
+from deskcheck.data.dataset_splitter import split
 
 
 def _pair(

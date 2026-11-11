@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from deskcheck.data.dataset_catalog import AnnotatedPair, SplitManifest
 from deskcheck.domain.bounding_box import BoundingBox
 
-
 VALID_STATUSES = ("added", "removed", "moved", "unchanged")
 REQUIRED_CLASS_IDS = frozenset(range(6))  # 0..5 for the six approved classes
 

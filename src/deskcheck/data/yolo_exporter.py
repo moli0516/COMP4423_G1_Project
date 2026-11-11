@@ -11,7 +11,6 @@ from pathlib import Path
 
 from deskcheck.data.dataset_catalog import AnnotatedPair, SplitManifest
 
-
 DEFAULT_CLASS_NAMES = ("bottle", "cup", "keyboard", "mouse", "book", "scissors")
 
 

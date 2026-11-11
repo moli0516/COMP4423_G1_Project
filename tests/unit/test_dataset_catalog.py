@@ -211,3 +211,10 @@ def test_load_catalog_ok(tmp_path: Path) -> None:
     pairs, manifest = load_catalog(pairs_path, manifest_path)
     assert set(pairs) == {"p1", "p2"}
     assert manifest.splits["train"] == ("p1",)
+
+def test_annotations_reject_string_booleans(tmp_path: Path) -> None:
+    rec = _base_pair_dict("p1")
+    rec["independently_captured_no_change"] = "false"
+    path = _write_jsonl(tmp_path / "pairs.jsonl", [rec])
+    with pytest.raises(ValueError, match="must be an actual boolean"):
+        load_annotations(path)

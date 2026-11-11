@@ -7,11 +7,10 @@ Coverage beats exact ratios: fail clearly if coverage is infeasible.
 from __future__ import annotations
 
 import random
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from deskcheck.data.dataset_catalog import AnnotatedPair, SplitManifest
-
 
 VALID_STATUSES = ("added", "removed", "moved", "unchanged")
 TARGET_RATIOS = {"train": 0.60, "val": 0.20, "test": 0.20}
@@ -132,7 +131,7 @@ def split(
     rng.shuffle(remaining)
 
     target_counts = {
-        name: max(int(round(target_ratios[name] * total_pairs)), 1)
+        name: max(round(target_ratios[name] * total_pairs), 1)
         for name in target_ratios
     }
     current = {name: 0 for name in target_ratios}
@@ -154,8 +153,8 @@ def split(
     for bucket in buckets:
         splits[assignment[bucket.group_id]].extend(bucket.pair_ids)
 
-    for name in splits:
-        if not splits[name]:
+    for name, ids in splits.items():
+        if not ids:
             raise ValueError(f"split {name!r} ended up empty after grouping")
 
     return SplitManifest(

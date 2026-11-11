@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 ALLOWED_TOP_LEVEL = {
     "experiment_id", "owner", "hypothesis", "baseline_reference",
     "changed_factor", "model", "data", "preprocessing", "augmentation",
@@ -114,8 +113,9 @@ def _validate_ranges(cfg: TrainingConfig) -> None:
     _require(0 <= inf.get("nms_iou_threshold", -1) <= 1,
              "inference.nms_iou_threshold must be in [0, 1]")
 
-    _require(cfg.validation.get("split") in ("val", "test"),
-             "validation.split must be 'val' or 'test'")
+    _require(cfg.validation.get("split") == "val",
+             "validation.split must be 'val'; test evaluation is a separate "
+             "execution path (no test-based model selection)")
 
 
 def load(path: Path, baseline_path: Path | None = None) -> TrainingConfig:

@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 SCHEMA_VERSION = "1.0"
 REQUIRED_PAIR_FIELDS = {
     "schema_version",
@@ -69,6 +68,13 @@ def _require(condition: bool, message: str) -> None:
         raise ValueError(message)
 
 
+def _parse_bool(value: Any, what: str) -> bool:
+    """Reject truthy coercions such as bool('false') == True."""
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{what} must be an actual boolean, got {type(value).__name__}")
+
+
 def _parse_pair(raw: dict[str, Any], line_no: int) -> AnnotatedPair:
     missing = REQUIRED_PAIR_FIELDS - raw.keys()
     _require(not missing, f"pair on line {line_no}: missing fields {sorted(missing)}")
@@ -99,7 +105,10 @@ def _parse_pair(raw: dict[str, Any], line_no: int) -> AnnotatedPair:
         width=raw["width"],
         height=raw["height"],
         rules_version=raw["rules_version"],
-        independently_captured_no_change=bool(raw["independently_captured_no_change"]),
+        independently_captured_no_change=_parse_bool(
+            raw["independently_captured_no_change"],
+            f"pair {raw['pair_id']!r} independently_captured_no_change",
+        ),
         manual_before_objects=tuple(raw["manual_before_objects"]),
         manual_after_objects=tuple(raw["manual_after_objects"]),
         correspondences=tuple(raw["correspondences"]),

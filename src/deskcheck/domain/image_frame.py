@@ -30,7 +30,7 @@ class ImageFrame:
 
     def __post_init__(self) -> None:
         if not isinstance(self.array, np.ndarray):
-            raise ValueError("array must be a numpy.ndarray")
+            raise TypeError("array must be a numpy.ndarray")
         if self.array.dtype != np.uint8:
             raise ValueError("array dtype must be uint8")
         if self.array.ndim != 3 or self.array.shape[2] != 3:
@@ -44,7 +44,7 @@ class ImageFrame:
         if self.width <= 0 or self.height <= 0:
             raise ValueError("width and height must be positive")
 
-    def copy(self) -> "ImageFrame":
+    def copy(self) -> ImageFrame:
         """Return a new ImageFrame with a deep-copied array.
 
         Use this before in-place modification (rendering, augmentation
