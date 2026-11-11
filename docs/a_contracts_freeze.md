@@ -181,7 +181,6 @@ Contract with B's DetectionFilter: the adapter must
 - return confidence as a finite float in [0, 1].
 
 DetectionFilter behaviour owned by B (from docs/part_b_filtering.md):
-confidence threshold >=, one-highest-per-class, ties broken by
 (x1, y1, x2, y2, detection_id), stateless.
 
 ---
@@ -196,23 +195,32 @@ B has asked to switch to:
 
     def predict(self, image: ImageFrame) -> list[Detection]: ...
 
-ImageFrame does not exist yet. Proposal: a frozen dataclass under
-src/deskcheck/domain/image_frame.py holding
+`ImageFrame` is now implemented at `src/deskcheck/domain/image_frame.py`
+as a frozen dataclass:
 
-    @dataclass(frozen=True)
-    class ImageFrame:
-        array: np.ndarray         # RGB uint8, shape (H, W, 3)
-        width: int
-        height: int
-        source_path: Path | None = None   # provenance only, never a feature
+```python
+@dataclass(frozen=True)
+class ImageFrame:
+    array: np.ndarray         # RGB uint8, shape (H, W, 3)
+    width: int
+    height: int
+    source_path: Path | None = None   # provenance only, never a feature
+```
 
-Open questions for B:
-- Is domain/image_frame.py the right location, or should it live under
-  preprocessing/ as loader output?
-- Should source_path be in the record, and should anything downstream be
-  permitted to read it? (It must not influence prediction.)
-- Who writes ImagePairLoader? C (application) or A (detector adapter)? The
-  loader's output shape is the input to predict, so this is the same decision.
+Ownership policy (agreed with B):
+- `array` is canonical, orientation-normalized RGB uint8 data with shape
+  (H, W, 3). Loader does NOT resize, crop, or letterbox.
+- `width` and `height` are positive and must match `array.shape`.
+- `source_path` is provenance only. The detector must work with
+  `source_path=None` and must NOT reopen the file.
+- Consumers must not mutate the shared array in place; rendering uses
+  `.copy()`.
+
+C owns loading/canonicalization. A owns model-specific preprocessing inside
+the detector adapter and returns boxes in ImageFrame coordinates.
+
+`yolo_detector.py` is still unimplemented pending the ultralytics pin and
+a real checkpoint, but the interface contract is now frozen.
 
 Until B confirms, yolo_detector.py stays unimplemented.
 
@@ -251,8 +259,7 @@ synthetic fixtures; it will run unchanged on real data once collected.
 4. Approve the annotation schema fields (section 4a) — anything extra needed
    for B's EventEvaluator / NoChangeEvaluator?
 5. Confirm Detection field names stay as in section 5 (no rename to bbox_xyxy).
-6. Answer the three ImageFrame questions in section 6 (location, source_path,
-   who writes ImagePairLoader).
+6. Confirm the `ImagePairLoader` ownership (§6): C or A?
 
 Items 1, 2, and 6 block downstream code. Items 3–5 are confirmations of things
 already coded; changes are cheap now and expensive after pilot annotation.

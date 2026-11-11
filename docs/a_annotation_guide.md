@@ -16,9 +16,9 @@ and for how we judge predicted labels during error analysis.
    images of a pair. If the camera moved, discard the pair — do not annotate.
 2. Use the actual image content, not the filenames. Filenames never encode
    status.
-3. One instance per class per image (basic scope). If a second instance of the
-   same class appears, take the more prominent one and note the exclusion in
-   the capture notes.
+3. 3. One instance per class per image (basic scope). If a second instance of the
+   same class appears, the pair is out of scope: **re-capture** or exclude the
+   scene rather than silently leaving a visible target object unannotated.
 4. Exclude objects that are fully occluded, cut off by the image boundary, or
    could plausibly be hidden rather than absent.
 5. If a class is absent from both images, it produces **no row** — not an
@@ -42,7 +42,7 @@ and for how we judge predicted labels during error analysis.
 
 | class_id | name | include | exclude |
 |---|---|---|---|
-| 0 | bottle | tall rigid container with a neck: water bottle, sauce bottle, spray bottle | cups, mugs, thermoses without a neck |
+| 0 | bottle | tall rigid container with a neck: water bottle, sauce bottle, spray bottle | cups, thermoses without a neck (a mug is a cup) |
 | 1 | cup | short open-top drinking vessel: mug, teacup, paper cup | bottles, glasses with stems taller than wide |
 | 2 | keyboard | full or compact typing keyboard with a grid of keys | keypads, remote controls, piano keyboards |
 | 3 | mouse | pointing device with buttons under the palm | trackpads, trackballs |
