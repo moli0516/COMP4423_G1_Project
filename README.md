@@ -1,5 +1,10 @@
 # DeskCheck
 
+## Part C ? Jerry-C integration candidate
+
+See [Jerry-C handoff and running instructions](docs/jerry_c_handoff.md) for the current synthetic UI, CLI, tests and exact real-model limitations. Install this checkout with `python -m pip install -r requirements.txt`. The UI, CLI and B evaluation runner use the same comparison service; no trained inference is claimed.
+
+
 COMP4423 Group 1: compare two desk photographs and report object changes.
 
 ## Status
