@@ -2,7 +2,7 @@
 
 ## Part C ? Jerry-C integration candidate
 
-See [Jerry-C handoff](docs/jerry_c_handoff.md) for the tested synthetic UI/CLI and [real model integration](docs/REAL_MODEL_INTEGRATION.md) for the new local-checkpoint YOLO backend and CLI. Install this checkout with `python -m pip install -r requirements.txt`. A real-model inference run is NOT verified until A provides the actual .pt checkpoint and a frozen configuration.
+See [Jerry-C handoff](docs/jerry_c_handoff.md) for the tested synthetic UI/CLI and [real model integration](docs/REAL_MODEL_INTEGRATION.md) for the local-checkpoint YOLO backend and CLI, and [real batch evaluation](docs/REAL_BATCH_EVALUATION.md) for B's existing EvaluationRunner. Install this checkout with `python -m pip install -r requirements.txt`. A real-model inference run is NOT verified until A provides the actual .pt checkpoint and a frozen configuration.
 
 
 COMP4423 Group 1: compare two desk photographs and report object changes.
