@@ -79,3 +79,34 @@ def test_frozen_prevents_attribute_reassignment() -> None:
     f = _make(4, 6)
     with pytest.raises(dataclasses.FrozenInstanceError):
         f.width = 99  # type: ignore[misc]
+
+
+# --- ObjectDetector interface accepts ImageFrame (review item 9) ---
+
+
+def test_object_detector_interface_accepts_image_frame() -> None:
+    """A stub ObjectDetector must subclass with predict(image: ImageFrame)."""
+    from deskcheck.detection.object_detector import ObjectDetector
+    from deskcheck.domain.detection import Detection
+
+    class _StubDetector(ObjectDetector):
+        def predict(self, image: ImageFrame) -> list[Detection]:
+            assert image.source_path is None
+            assert image.array.shape == (image.height, image.width, 3)
+            return []
+
+    f = _make(4, 6)
+    assert _StubDetector().predict(f) == []
+
+
+def test_object_detector_cannot_be_instantiated_without_predict() -> None:
+    """Subclassing without implementing predict must fail (ABC enforcement)."""
+    import pytest as _pytest
+
+    from deskcheck.detection.object_detector import ObjectDetector
+
+    class _BadDetector(ObjectDetector):
+        pass
+
+    with _pytest.raises(TypeError):
+        _BadDetector()  # type: ignore[abstract]
