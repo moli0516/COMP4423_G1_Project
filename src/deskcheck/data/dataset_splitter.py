@@ -14,6 +14,7 @@ from deskcheck.data.dataset_catalog import AnnotatedPair, SplitManifest
 
 VALID_STATUSES = ("added", "removed", "moved", "unchanged")
 TARGET_RATIOS = {"train": 0.60, "val": 0.20, "test": 0.20}
+REQUIRED_CLASS_IDS = frozenset(range(6))
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,6 @@ class GroupBucket:
 
 
 def _build_groups(pairs: Iterable[AnnotatedPair]) -> list[GroupBucket]:
-    """Collapse pairs into capture-group buckets. Pairs sharing an image are merged."""
     pairs = list(pairs)
     parent: dict[str, str] = {}
 
@@ -65,54 +65,96 @@ def _build_groups(pairs: Iterable[AnnotatedPair]) -> list[GroupBucket]:
                 statuses.add(ev["status"])
             if pair.independently_captured_no_change:
                 no_change += 1
-        buckets.append(
-            GroupBucket(
-                group_id=root,
-                pair_ids=tuple(p.pair_id for p in group_pairs),
-                class_ids=frozenset(class_ids),
-                statuses=frozenset(statuses),
-                no_change_count=no_change,
-            )
-        )
+        buckets.append(GroupBucket(
+            group_id=root,
+            pair_ids=tuple(p.pair_id for p in group_pairs),
+            class_ids=frozenset(class_ids),
+            statuses=frozenset(statuses),
+            no_change_count=no_change,
+        ))
     return buckets
 
 
-def _seed_required_statuses(buckets: list[GroupBucket]) -> dict[str, str]:
-    """Pick one bucket per split to guarantee val/test status coverage."""
-    assignment: dict[str, str] = {}
+def _assign_coverage_targets(
+    buckets: list[GroupBucket],
+    targets: tuple[str, ...] = ("val", "test"),
+) -> dict[str, str]:
+    """Assign whole buckets to coverage targets (val, test) such that each
+    target receives all 4 statuses, a no-change pair, and all 6 classes.
+
+    Coverage may come from MULTIPLE buckets. Buckets selected for one target
+    are removed from the pool for the next target.
+
+    Raises ValueError if required coverage is infeasible even with
+    distributed assignment.
+    """
+    required_statuses = set(VALID_STATUSES)
+    required_classes = set(REQUIRED_CLASS_IDS)
     remaining = list(buckets)
-    required = set(VALID_STATUSES)
-    for split_name in ("val", "test"):
-        # Prefer the bucket that covers all required statuses and has no-change pairs.
-        candidates = [
-            b for b in remaining
-            if required.issubset(b.statuses) and b.no_change_count > 0
-        ]
-        if not candidates:
-            # Relax: at least needs no-change pairs and as many statuses as possible.
-            candidates = [b for b in remaining if b.no_change_count > 0]
-            if not candidates:
-                raise ValueError(
-                    f"cannot guarantee {split_name} no-change coverage: "
-                    "no remaining bucket has independent no-change pairs"
-                )
-        best = max(candidates, key=lambda b: (len(b.statuses), -len(b.pair_ids)))
-        if not required.issubset(best.statuses):
+    assignment: dict[str, str] = {}
+
+    for target in targets:
+        selected: list[GroupBucket] = []
+        union_statuses: set[str] = set()
+        union_classes: set[int] = set()
+
+        # First: pick a bucket with a no-change pair (the rarest property).
+        no_change_candidates = [b for b in remaining if b.no_change_count > 0]
+        if not no_change_candidates:
             raise ValueError(
-                f"cannot guarantee {split_name} status coverage: best bucket "
-                f"{best.group_id!r} only has {sorted(best.statuses)}"
+                f"cannot guarantee {target} no-change coverage: no remaining "
+                f"bucket has an independent no-change pair"
             )
-        assignment[best.group_id] = split_name
-        remaining.remove(best)
+        no_change_pick = max(
+            no_change_candidates,
+            key=lambda b: (len(b.statuses), len(b.class_ids)),
+        )
+        selected.append(no_change_pick)
+        union_statuses |= no_change_pick.statuses
+        union_classes |= no_change_pick.class_ids
+        remaining.remove(no_change_pick)
+
+        # Then: greedily add buckets until statuses + classes covered.
+        while (not (required_statuses <= union_statuses
+                    and required_classes <= union_classes)) and remaining:
+            def _score(b: GroupBucket,
+                       current_statuses: set[str] = union_statuses,
+                       current_classes: set[int] = union_classes) -> int:
+                new_statuses = len((b.statuses - current_statuses) & required_statuses)
+                new_classes = len((b.class_ids - current_classes) & required_classes)
+                return new_statuses + new_classes
+
+            pick = max(remaining, key=_score)
+            if _score(pick) == 0:
+                break
+            selected.append(pick)
+            union_statuses |= pick.statuses
+            union_classes |= pick.class_ids
+            remaining.remove(pick)
+
+        missing_statuses = required_statuses - union_statuses
+        missing_classes = required_classes - union_classes
+        if missing_statuses or missing_classes:
+            raise ValueError(
+                f"cannot guarantee {target} coverage even with distributed "
+                f"assignment: missing statuses={sorted(missing_statuses)}, "
+                f"missing classes={sorted(missing_classes)}"
+            )
+
+        for b in selected:
+            assignment[b.group_id] = target
+
     return assignment
 
 
 def split(
     pairs: list[AnnotatedPair],
     seed: int = 42,
-    target_ratios: dict[str, float] = TARGET_RATIOS,
+    target_ratios: dict[str, float] | None = None,
 ) -> SplitManifest:
     """Assign whole groups to train/val/test. Deterministic for a given seed."""
+    if target_ratios is None:
+        target_ratios = dict(TARGET_RATIOS)
     if not pairs:
         raise ValueError("cannot split empty dataset")
     if abs(sum(target_ratios.values()) - 1.0) > 1e-6:
@@ -125,9 +167,10 @@ def split(
     if total_pairs == 0:
         raise ValueError("no pairs to split")
 
-    rng = random.Random(seed)
-    assignment = _seed_required_statuses(buckets)
+    assignment = _assign_coverage_targets(buckets)
+
     remaining = [b for b in buckets if b.group_id not in assignment]
+    rng = random.Random(seed)
     rng.shuffle(remaining)
 
     target_counts = {
@@ -135,9 +178,10 @@ def split(
         for name in target_ratios
     }
     current = {name: 0 for name in target_ratios}
-    for gid, name in assignment.items():
-        bucket = next(b for b in buckets if b.group_id == gid)
-        current[name] += len(bucket.pair_ids)
+    for bucket in buckets:
+        target = assignment.get(bucket.group_id)
+        if target is not None:
+            current[target] += len(bucket.pair_ids)
 
     for bucket in remaining:
         best_split = min(
