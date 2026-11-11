@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy>=2,<3", "Pillow>=10,<13"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<9", "ruff>=0.8,<1"]
+dev = ["pytest>=8,<9", "ruff>=0.8,<1", "streamlit>=1.67,<2"]
 vision = ["ultralytics>=8,<9", "Pillow>=10,<13"]
 ui = ["streamlit>=1.67,<2"]
 browser = ["playwright>=1.50,<2"]

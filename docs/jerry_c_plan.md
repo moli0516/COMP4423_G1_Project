@@ -47,3 +47,6 @@ Files: requirements.txt, .github/workflows/ci.yml, README.md, docs/jerry_c_hando
 
 ## Decisions
 The user already approved execution; no repeated design confirmation. New isolated worktree uses a snapshot of uncommitted C work so no original working changes are lost. A shared ImageFrame merge is not claimed by a C-local adapter test. Self-review is not an independent reviewer.
+
+## Execution outcome and permission ruling
+Core/UI/CLI work, 257 tests, Ruff, actual Edge acceptance, source preservation and clean-source reproduction were completed. The initial workflow-edit push was rejected by GitHub OAuth scope. Ruling: preserve the proposed matrix as inert documentation, retain the exact upstream CI file and include Streamlit in dev dependencies. Do not broaden credentials or bypass the workflow permission boundary. Windows remains locally tested; GitHub CI and teammate approval are separate publication gates.

@@ -45,7 +45,7 @@ In addition to repository tests with a representative frame type, a local check 
 - Ruff passed after scoped C fixes. No lint exclusions were added to hide production failures.
 - Actual headless Edge: HTTP health, actual file uploads, corrupt replacement/recovery, cleared stale downloads, wipe keyboard endpoints, no-AI photo mode, and four browser downloads byte-equal to CLI. Zero page exceptions and zero request failures. Mobile viewport/content were both 390 px.
 - Test browser and test server were stopped after verification. Browser acceptance is distinct from Streamlit AppTest.
-- GitHub workflow now installs dev + UI dependencies and runs lint, pip check and full tests on Ubuntu/Python 3.11 and Windows/Python 3.12. Consult the PR checks for the remote result; a configured workflow is not itself a CI pass.
+- The existing upstream GitHub workflow is kept byte-identical: Ubuntu/Python 3.11, `pip install -e .[dev]`, Ruff and pytest. The dev extra now includes Streamlit so UI/upload tests are exercised rather than skipped. Windows/Python 3.12 was validated locally. A proposed two-platform workflow is retained as documentation in `ci_matrix_proposal.yml.txt`, not as an active workflow: the current OAuth credential lacks workflow-write scope. A maintainer must separately approve/apply that optional workflow update. Consult actual PR checks for remote CI status.
 - No clean installation on another person's computer, real-photo accuracy, real model training, stress benchmark, independent teammate approval or merge is claimed.
 
 ## Remaining team handoff
@@ -57,3 +57,6 @@ Before merging, another teammate should review `Jerry-C`, read the CI outcome, a
 Existing 10 November C code was carried forward; this increment adds the review UI, explicit frame bridge, upload/recovery and six-class tests, one-command demo, reproducible checkout requirements, CI and Windows byte-serialization regression fix. Tests and browser scripts were AI-assisted and executed; the individual course report must reflect the student's own work and verification.
 
 Local raw receipts and screenshots are retained outside Git in the separate `COMP4423_Jerry_C_EVIDENCE_20261111` directory. The earlier failed browser check is preserved alongside the corrected passing run. They are not fabricated real-model metrics.
+
+## Publication permission boundary
+The first push was rejected solely because it modified `.github/workflows/ci.yml` without the required workflow scope. No credentials or scopes were changed. The publishable branch restores the exact upstream workflow and adds the required UI test dependency through ordinary project packaging. The workflow proposal and the original local commit are preserved; this does not claim the optional Windows CI job is active.
