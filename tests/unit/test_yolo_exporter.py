@@ -298,3 +298,106 @@ def test_refuse_overwrite_without_flag(tmp_path: Path) -> None:
     import pytest as _pytest
     with _pytest.raises(FileExistsError, match="already has content"):
         export({"p1": p1}, manifest, out, overwrite=False)
+
+
+def test_validator_rejects_cross_split_shared_image_id(tmp_path: Path) -> None:
+    """A shared image_id across splits must fail the audit.
+
+    This exercises the check that the export CLI now relies on.
+    """
+    from deskcheck.data.dataset_validator import audit
+
+    p_train = _make_pair_with_images(tmp_path, "p_tr", "g_tr")
+    p_val = _make_pair_with_images(tmp_path, "p_va", "g_va")
+    # Force p_val.before_image_id to collide with p_train.after_image_id
+    p_val = AnnotatedPair(
+        pair_id=p_val.pair_id,
+        capture_group_id=p_val.capture_group_id,
+        before_image_id=p_train.after_image_id,
+        after_image_id=p_val.after_image_id,
+        before_image_path=p_val.before_image_path,
+        after_image_path=p_val.after_image_path,
+        width=p_val.width, height=p_val.height,
+        rules_version=p_val.rules_version,
+        independently_captured_no_change=False,
+        manual_before_objects=p_val.manual_before_objects,
+        manual_after_objects=p_val.manual_after_objects,
+        correspondences=(), events=(),
+    )
+    pairs = {"p_tr": p_train, "p_va": p_val}
+    manifest = _manifest({"train": ["p_tr"], "val": ["p_va"], "test": []})
+    report = audit(pairs, manifest)
+    assert not report.ok
+    assert any("shared across splits" in e for e in report.errors)
+
+
+def test_export_cli_blocked_by_failed_audit(tmp_path: Path) -> None:
+    """The export CLI must exit 2 if the audit fails, without writing output."""
+    import json
+    import subprocess
+    import sys
+
+    # Build a set of files that fail audit (shared image across splits)
+    p_train = _make_pair_with_images(tmp_path, "p_tr", "g_tr")
+    p_val = _make_pair_with_images(tmp_path, "p_va", "g_va")
+    p_val = AnnotatedPair(
+        pair_id=p_val.pair_id,
+        capture_group_id=p_val.capture_group_id,
+        before_image_id=p_train.after_image_id,
+        after_image_id=p_val.after_image_id,
+        before_image_path=p_val.before_image_path,
+        after_image_path=p_val.after_image_path,
+        width=p_val.width, height=p_val.height,
+        rules_version=p_val.rules_version,
+        independently_captured_no_change=False,
+        manual_before_objects=p_val.manual_before_objects,
+        manual_after_objects=p_val.manual_after_objects,
+        correspondences=(), events=(),
+    )
+
+    # Write annotations JSONL
+    ann = tmp_path / "pairs.jsonl"
+    def _serialize(p):
+        return {
+            "schema_version": "1.0",
+            "pair_id": p.pair_id,
+            "capture_group_id": p.capture_group_id,
+            "before_image_id": p.before_image_id,
+            "after_image_id": p.after_image_id,
+            "before_image_path": p.before_image_path,
+            "after_image_path": p.after_image_path,
+            "width": p.width, "height": p.height,
+            "rules_version": p.rules_version,
+            "independently_captured_no_change": p.independently_captured_no_change,
+            "manual_before_objects": list(p.manual_before_objects),
+            "manual_after_objects": list(p.manual_after_objects),
+            "correspondences": list(p.correspondences),
+            "events": list(p.events),
+        }
+    with ann.open("w", encoding="utf-8") as fh:
+        for p in (p_train, p_val):
+            fh.write(json.dumps(_serialize(p)) + "\n")
+
+    # Write manifest
+    mf = tmp_path / "splits.json"
+    mf.write_text(json.dumps({
+        "schema_version": "1.0", "seed": 42, "dataset_release": "v1",
+        "splits": {"train": ["p_tr"], "val": ["p_va"], "test": []},
+    }), encoding="utf-8")
+
+    output = tmp_path / "export"
+
+    result = subprocess.run(
+        [sys.executable, "scripts/export_yolo_dataset.py",
+         "--annotations", str(ann),
+         "--manifest", str(mf),
+         "--output", str(output)],
+        check=False,
+        capture_output=True, text=True,
+        cwd=str(Path(__file__).resolve().parents[2]),
+    )
+
+    assert result.returncode == 2, f"expected exit 2, got {result.returncode}: {result.stderr}"
+    assert "audit failed" in result.stderr
+    assert not output.exists() or not any(output.iterdir()), \
+        "output directory should not exist or be empty after failed audit"
