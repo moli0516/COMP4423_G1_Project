@@ -51,6 +51,11 @@ class DemoOracleTests(unittest.TestCase):
         for side in ("before_box", "after_box"):
             moving[side][0] += 1.0
             moving[side][2] += 1.0
+        # Keep transport internally consistent so this still exercises the
+        # independent pixel/geometry oracle, rather than the serializer guard.
+        for side in ("before", "after"):
+            retained = next(r for r in data[f"{side}_detections"] if r["class_id"] == 0)
+            retained["bbox_xyxy"] = moving[f"{side}_box"].copy()
         serializer = ResultSerializer()
         result_path.write_bytes(serializer.to_json(data).encode("utf-8"))
         csv_path.write_bytes(serializer.to_csv(data).encode("utf-8"))

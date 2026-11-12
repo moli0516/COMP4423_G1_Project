@@ -1,4 +1,4 @@
-# Member C — E2 resolution experiment: execution-ready protocol (not run)
+# Member C — E2 resolution experiment: gated protocol (not run)
 
 **Evidence:** A's unmerged PR #8, `configs/experiments/resolution.json`
 at commit `29f65797c19379a678dc6ce1b5fc39d1b010ffd3`
@@ -6,6 +6,14 @@ declares `experiment_id=E2`, `owner=C` and a proposed
 input-resolution comparison against A's E0 baseline.
 **Status: NOT EXECUTED.** The file explicitly says STUB, so no
 measurements or selected checkpoint are claimed.
+
+12 November recheck of the same A commit: `scripts/train.py` still exposes
+only `--config` and exits 2 with `Not implemented: validate/export training
+data and implement ModelTrainer first.` No runnable trainer interface exists
+for a C execution wrapper yet. Do not invent `--data`/`--run-dir` flags from
+the older blueprint or add a competing trainer. Next executable E2 step belongs
+to A: deliver the runnable trainer and frozen E0 inputs; C then binds a preflight
+and fresh-run invocation to that actual interface, before any approved training.
 
 ## Question and comparison
 

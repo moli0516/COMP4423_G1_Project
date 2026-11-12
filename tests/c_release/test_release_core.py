@@ -106,7 +106,12 @@ class ReleaseCoreTests(unittest.TestCase):
         self.assertEqual(len({r["Object ID"] for r in rows}), 4)
         self.assertEqual(result, saved)
         self.assertTrue(all(r["Status"] != "unchanged" for r in filtered))
-        self.assertEqual(mod.comparison_rows({**result, "records": []}), [])
+        self.assertEqual(
+            mod.comparison_rows(
+                {**result, "records": [], "before_detections": [], "after_detections": []}
+            ),
+            [],
+        )
 
     def test_wipe_endpoints_dimensions_and_no_mutation(self):
         wipe = self.module("presentation").comparison_wipe

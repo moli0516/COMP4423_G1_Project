@@ -109,6 +109,23 @@ class ResultSerializer:
                     BoundingBox(*box).validate(*size)
                     used_ids.add(name)
                     used_classes.add(class_id)
+                # Link evidence, without recomputing B's matching/status decisions.
+                prefix = side.removesuffix("_detections")
+                by_class = {d["class_id"]: d for d in selected}
+                expected_classes = {
+                    r["class_id"] for r in records if r[f"{prefix}_box"] is not None
+                }
+                if by_class.keys() != expected_classes:
+                    raise ValueError("Retained detection inventory disagrees with event records")
+                for record in records:
+                    detection = by_class.get(record["class_id"])
+                    expected_id = detection["detection_id"] if detection is not None else None
+                    expected_box = detection["bbox_xyxy"] if detection is not None else None
+                    if (
+                        record[f"{prefix}_detection_id"] != expected_id
+                        or record[f"{prefix}_box"] != expected_box
+                    ):
+                        raise ValueError("Retained detection evidence disagrees with event record")
         return data
 
     def to_json(self, result: dict) -> str:

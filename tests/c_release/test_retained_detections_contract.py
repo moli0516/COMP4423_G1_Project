@@ -1,4 +1,4 @@
-"""C result must expose post-B-filter detections for A's future detector AP.
+"""C result exposes post-B-filter application diagnostics, not detector AP input.
 
 These are application predictions, never labels or a measured AP score.
 """

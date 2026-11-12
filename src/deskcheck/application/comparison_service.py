@@ -83,7 +83,7 @@ class ComparisonService:
             "pair_id": pair_id,
             "image_size": list(size),
             # After B's confidence/one-per-class filtering, before matching.
-            # Retain canonical original-pixel predictions for A's future AP evaluation.
+            # Application diagnostics, not A's pre-B-filter detector AP input.
             "before_detections": self._selected_transport(selected[0]),
             "after_detections": self._selected_transport(selected[1]),
             "records": records,
