@@ -8,13 +8,15 @@ Design decisions:
 - Image bytes are copied, not symlinked.
 - Shared image_id across pairs: allowed only if path+dims+annotations agree.
 - Non-empty output directory: rejected unless `overwrite=True`.
-  When overwrite=True, the old images/ labels/ trees are REMOVED before
-  writing, so a re-export cannot leave stale files behind.
+- Atomic publish: content is written into a sibling temp directory and
+  renamed into place on full success. A mid-run failure never leaves a
+  half-populated output directory at the target path.
 """
 
 from __future__ import annotations
 
 import shutil
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -84,36 +86,6 @@ def _check_shared_image_consistency(pairs: dict[str, AnnotatedPair]) -> None:
                 seen[image_id] = record
 
 
-def _prepare_output_dir(output_dir: Path, overwrite: bool) -> None:
-    """Ensure output dir is either fresh or overwrite is allowed.
-
-    When overwrite=True, removes previous images/ labels/ and dataset.yaml
-    so stale files from a different export cannot survive.
-    """
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True)
-        return
-
-    has_content = any(output_dir.iterdir())
-    if not has_content:
-        return
-
-    if not overwrite:
-        raise FileExistsError(
-            f"export directory already has content: {output_dir}. "
-            f"Pass overwrite=True (CLI: --force) to replace it."
-        )
-
-    # Overwrite allowed: clear old export artifacts so nothing stale remains.
-    for sub in ("images", "labels"):
-        sub_dir = output_dir / sub
-        if sub_dir.exists():
-            shutil.rmtree(sub_dir)
-    yaml_path = output_dir / "dataset.yaml"
-    if yaml_path.exists():
-        yaml_path.unlink()
-
-
 def _copy_image(source_path: Path, dest_path: Path) -> None:
     if not source_path.exists():
         raise FileNotFoundError(
@@ -124,24 +96,14 @@ def _copy_image(source_path: Path, dest_path: Path) -> None:
     shutil.copyfile(source_path, dest_path)
 
 
-def export(
-    pairs: dict[str, AnnotatedPair],
-    manifest: SplitManifest,
-    output_dir: Path,
-    *,
-    class_names: tuple[str, ...] = DEFAULT_CLASS_NAMES,
-    overwrite: bool = False,
-) -> ExportSummary:
-    """Write YOLO images+labels+dataset.yaml. Does not mutate `pairs`."""
-    output_dir = Path(output_dir)
+def _write_into(target: Path, pairs: dict[str, AnnotatedPair],
+                manifest: SplitManifest, class_names: tuple[str, ...]) -> tuple[int, int, int, int]:
+    """Write images/labels/dataset.yaml into `target`. Caller guarantees
+    `target` is fresh. Returns (images_written, labels_written,
+    empty_labels_written, shared_dedup_count)."""
+    target.mkdir(parents=True, exist_ok=True)
 
-    # Validate shared-image consistency BEFORE any filesystem changes.
-    _check_shared_image_consistency(pairs)
-
-    # Prepare output dir (may remove stale images/labels/yaml on overwrite).
-    _prepare_output_dir(output_dir, overwrite)
-
-    # Build plan: for each split, list of (image_id, export_key, side, pair).
+    # Build plan.
     plan: dict[str, list[tuple[str, str, str, AnnotatedPair]]] = {
         name: [] for name in manifest.splits
     }
@@ -162,24 +124,24 @@ def export(
                 key = _export_key(pair_id, side)
                 plan[split_name].append((image_id, key, side, pair))
 
-    # Write dataset.yaml first.
+    # dataset.yaml
     dataset_yaml = (
-        f"path: {output_dir.resolve()}\n"
+        f"path: {target.resolve()}\n"
         f"train: images/train\n"
         f"val: images/val\n"
         f"test: images/test\n"
         f"nc: {len(class_names)}\n"
         f"names: {list(class_names)}\n"
     )
-    (output_dir / "dataset.yaml").write_text(dataset_yaml, encoding="utf-8")
+    (target / "dataset.yaml").write_text(dataset_yaml, encoding="utf-8")
 
     images_written = 0
     labels_written = 0
     empty_labels = 0
 
     for split_name, entries in plan.items():
-        images_dir = output_dir / "images" / split_name
-        labels_dir = output_dir / "labels" / split_name
+        images_dir = target / "images" / split_name
+        labels_dir = target / "labels" / split_name
         images_dir.mkdir(parents=True, exist_ok=True)
         labels_dir.mkdir(parents=True, exist_ok=True)
 
@@ -207,11 +169,77 @@ def export(
             if not lines:
                 empty_labels += 1
 
+    return images_written, labels_written, empty_labels, shared_dedup_count
+
+
+def export(
+    pairs: dict[str, AnnotatedPair],
+    manifest: SplitManifest,
+    output_dir: Path,
+    *,
+    class_names: tuple[str, ...] = DEFAULT_CLASS_NAMES,
+    overwrite: bool = False,
+) -> ExportSummary:
+    """Write YOLO images+labels+dataset.yaml atomically.
+
+    - Validates shared-image consistency before writing anything.
+    - Refuses non-empty output_dir unless `overwrite=True`.
+    - Writes into a sibling temp dir, then atomically renames into place.
+    - A failure mid-write leaves the target untouched.
+    """
+    output_dir = Path(output_dir)
+
+    # 1. Refuse to clobber a non-empty output_dir without explicit permission.
+    if output_dir.exists() and any(output_dir.iterdir()) and not overwrite:
+        raise FileExistsError(
+            f"export directory already has content: {output_dir}. "
+            f"Pass overwrite=True (CLI: --force) to replace it."
+        )
+
+    # 2. Validate before touching disk.
+    _check_shared_image_consistency(pairs)
+
+    # 3. Write into a sibling temp dir.
+    parent = output_dir.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    token = uuid.uuid4().hex[:8]
+    tmp_dir = parent / f".{output_dir.name}.tmp-{token}"
+    old_dir = parent / f".{output_dir.name}.old-{token}"
+
+    try:
+        images_written, labels_written, empty_labels, dedup = _write_into(
+            tmp_dir, pairs, manifest, class_names
+        )
+    except Exception:
+        # Rollback: no partial export left behind.
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+
+    # 4. Atomic publish.
+    try:
+        if output_dir.exists():
+            output_dir.rename(old_dir)
+        tmp_dir.rename(output_dir)
+    except Exception:
+        # Attempt to restore.
+        if output_dir.exists() and old_dir.exists():
+            shutil.rmtree(output_dir, ignore_errors=True)
+        if old_dir.exists() and not output_dir.exists():
+            old_dir.rename(output_dir)
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+
+    # 5. Cleanup old copy.
+    if old_dir.exists():
+        shutil.rmtree(old_dir, ignore_errors=True)
+
     return ExportSummary(
         output_dir=output_dir,
         images_written=images_written,
         labels_written=labels_written,
         pairs_processed=sum(len(ids) for ids in manifest.splits.values()),
         empty_labels_written=empty_labels,
-        shared_images_deduplicated=shared_dedup_count,
+        shared_images_deduplicated=dedup,
     )

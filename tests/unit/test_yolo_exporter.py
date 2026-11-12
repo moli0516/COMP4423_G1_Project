@@ -401,3 +401,96 @@ def test_export_cli_blocked_by_failed_audit(tmp_path: Path) -> None:
     assert "audit failed" in result.stderr
     assert not output.exists() or not any(output.iterdir()), \
         "output directory should not exist or be empty after failed audit"
+
+
+# ---------- atomic publish ----------
+
+
+def test_export_failure_leaves_no_partial_output(tmp_path: Path) -> None:
+    """If a mid-export copy fails, the target output_dir must be untouched."""
+    p1 = _make_pair_with_images(tmp_path, "p1", "g1")
+    p2 = _make_pair_with_images(tmp_path, "p2", "g2")
+    # Corrupt p2's after image path to a non-existent file
+    p2 = AnnotatedPair(
+        pair_id=p2.pair_id,
+        capture_group_id=p2.capture_group_id,
+        before_image_id=p2.before_image_id,
+        after_image_id=p2.after_image_id,
+        before_image_path=p2.before_image_path,
+        after_image_path=str(tmp_path / "does_not_exist_after.png"),
+        width=p2.width, height=p2.height,
+        rules_version=p2.rules_version,
+        independently_captured_no_change=False,
+        manual_before_objects=p2.manual_before_objects,
+        manual_after_objects=p2.manual_after_objects,
+        correspondences=(), events=(),
+    )
+    manifest = _manifest({"train": ["p1", "p2"], "val": [], "test": []})
+    out = tmp_path / "export"
+
+    with pytest.raises(FileNotFoundError):
+        export({"p1": p1, "p2": p2}, manifest, out)
+
+    # Output dir must not exist (or must be empty) after failure.
+    assert not out.exists() or not any(out.iterdir()), (
+        f"partial export remained at {out}"
+    )
+    # No temp dirs or old dirs left behind in the parent.
+    leftovers = [p for p in tmp_path.iterdir() if p.name.startswith(".export")]
+    assert not leftovers, f"temp dirs leaked: {leftovers}"
+
+
+def test_export_overwrite_swap_preserves_new_content_on_success(tmp_path: Path) -> None:
+    """When overwrite=True and export succeeds, the new content replaces the old."""
+    p1 = _make_pair_with_images(tmp_path, "p1", "g1")
+    manifest = _manifest({"train": ["p1"], "val": [], "test": []})
+    out = tmp_path / "export"
+
+    # First export
+    export({"p1": p1}, manifest, out)
+    first_files = sorted(p.name for p in (out / "images" / "train").iterdir())
+    assert "p1__before.png" in first_files
+
+    # Re-export with the same data (overwrite=True) — should succeed cleanly.
+    export({"p1": p1}, manifest, out, overwrite=True)
+    second_files = sorted(p.name for p in (out / "images" / "train").iterdir())
+    assert second_files == first_files
+
+    # No stray .old/ .tmp dirs remain.
+    leftovers = [p for p in tmp_path.iterdir() if p.name.startswith(".export")]
+    assert not leftovers, f"temp/old dirs leaked: {leftovers}"
+
+
+def test_export_atomic_swap_no_partial_on_write_failure(tmp_path: Path) -> None:
+    """If a label write fails midway, target output_dir must remain untouched."""
+    from unittest.mock import patch
+
+    p1 = _make_pair_with_images(tmp_path, "p1", "g1")
+    manifest = _manifest({"train": ["p1"], "val": [], "test": []})
+    out = tmp_path / "export"
+
+    # Pre-populate out with a valid first export.
+    export({"p1": p1}, manifest, out)
+    old_image_files = sorted(p.name for p in (out / "images" / "train").iterdir())
+    assert old_image_files
+
+    # Force _write_into to fail AFTER the existing output is in place.
+    import deskcheck.data.yolo_exporter as mod
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated disk failure")
+    with (
+        patch.object(mod, "_write_into", _boom),
+        pytest.raises(RuntimeError, match="simulated disk failure"),
+    ):
+        export({"p1": p1}, manifest, out, overwrite=True)
+
+    # Original output must still be intact.
+    assert out.exists()
+    new_image_files = sorted(p.name for p in (out / "images" / "train").iterdir())
+    assert new_image_files == old_image_files, (
+        f"output_dir was modified despite write failure: {new_image_files}"
+    )
+
+    # No temp or old dirs remain.
+    leftovers = [p for p in tmp_path.iterdir() if p.name.startswith(".export")]
+    assert not leftovers, f"temp/old dirs leaked: {leftovers}"
