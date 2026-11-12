@@ -71,3 +71,27 @@ of B's matching/status logic.
 
 **Not claimed:** actual YOLO model loading, real photo accuracy, merged PR #8,
 approved B thresholds, real-model parity or final group acceptance.
+
+## Temporary frame boundary checks — 2026-11-12
+
+`tests/c_release/test_frame_boundary_compatibility.py` adds 16 **STUB_ONLY**
+cases. Losslessly encoded non-square RGB PNGs with EXIF 2/4/5/7 pass through
+the actual C loader, temporary adapter, unchanged B pipeline and serializer.
+Independent NumPy pixel oracles verify oriented dimensions and original-pixel
+edge boxes. The decoded-frame path runs with file reopening forbidden.
+Other cases reject altered factory pixels/dimensions/source identity, detector
+metadata mutation and noncanonical detection return types; actual B Detection
+object identity is preserved. A test-only `SimpleNamespace` models constructor
+fields; it is not A's shared class and does not prove PR #8 integration.
+
+Local verification: 16 new cases plus the three existing adapter regression
+cases passed (19 total). The first attempt had four test-harness failures:
+the no-I/O guard caught `numpy.testing`'s lazy package-metadata import. The
+guarded assertion now uses the already-loaded `numpy.array_equal`; the guard
+remains in place. No production code or existing test was changed.
+
+Evidence is limited to software boundaries with an injected stub. There is
+no A checkpoint, YOLO runtime, manual browser acceptance or detector AP result
+from these checks. PR #8, the final A-owned adapter, reviewed data and B-approved
+thresholds remain separate gates. Transparent inputs continue to be rejected
+by C pending an agreed alpha policy.
