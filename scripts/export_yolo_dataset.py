@@ -19,6 +19,9 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="Output directory for images/labels/dataset.yaml")
     parser.add_argument("--force", action="store_true",
                         help="Allow writing into a non-empty output directory.")
+    parser.add_argument("--movement-threshold", type=float, default=None,
+                        help="Optional frozen tau; enables moved/unchanged "
+                             "consistency check in the audit.")
     return parser
 
 
@@ -27,6 +30,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         from deskcheck.data.dataset_catalog import load_catalog
+        from deskcheck.data.dataset_validator import audit
         from deskcheck.data.yolo_exporter import export
     except ImportError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -36,6 +40,15 @@ def main(argv: list[str] | None = None) -> int:
         pairs, manifest = load_catalog(args.annotations, args.manifest)
     except (FileNotFoundError, ValueError) as exc:
         print(f"invalid input: {exc}", file=sys.stderr)
+        return 2
+
+    # Audit BEFORE touching the output directory so a failed audit
+    # doesn't leave a partially written export behind.
+    report = audit(pairs, manifest, movement_threshold=args.movement_threshold)
+    if not report.ok:
+        print("audit failed; refusing to export", file=sys.stderr)
+        for e in report.errors:
+            print(f"  - {e}", file=sys.stderr)
         return 2
 
     try:
@@ -56,6 +69,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"labels written:  {summary.labels_written}")
     print(f"empty labels:    {summary.empty_labels_written}")
     print(f"shared dedup:    {summary.shared_images_deduplicated}")
+    if report.warnings:
+        for w in report.warnings:
+            print(f"warning: {w}")
     return 0
 
 
