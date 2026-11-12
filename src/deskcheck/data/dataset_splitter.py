@@ -80,6 +80,11 @@ def _build_groups(pairs: Iterable[AnnotatedPair]) -> list[GroupBucket]:
     return buckets
 
 
+# TODO(part-a): add a direct unit test for _coverage_failure_reason once
+# the splitter's coverage-seeding logic stabilizes. The 'infeasible' branch
+# is exercised indirectly during development; the 'greedy gap' branch is
+# currently untested. If B asks, a small fixture can test this directly.
+
 def _coverage_failure_reason(
     buckets: list[GroupBucket], required_statuses: set[str],
     required_classes: set[int],
