@@ -81,6 +81,22 @@ download is performed by Jerry-C's inference command.
    "Run local YOLO checkpoint", upload photos and compare. Without the
    config, the real button is disabled and no fake inference is published.
 
+## Settings integrity and A/B ownership
+
+`RealSettings` is now **source-bound**: an instance carries its immutable
+config bytes and original resolved source path, and `__post_init__` validates
+all effective fields against that source and checkpoint SHA-256.
+`dataclasses.replace(settings, movement_threshold=...)` or direct construction
+with a mismatched `config_sha256` is rejected; a legitimate change requires
+reloading a new source and produces a new hash. This protects the metadata
+used in UI, CLI and B runner. It is a safeguard against accidental
+in-process changes, not a substitute for A's real-checkpoint validation.
+
+A **accepted** production detector ownership in [PR #9](https://github.com/moli0516/COMP4423_G1_Project/pull/9#issuecomment-6799449023): the current `UltralyticsDetector` is a C-provided candidate that A will adopt, review and refine on A's own branch. A owns final model loading, preprocessing, backend NMS, class mapping and pixel-box restoration. No separate competing C production detector should be created.
+C keeps image loading, UI/CLI orchestration, exports, and an explicit frame
+adapter seam; B owns filter/matcher/change/evaluation. See
+[A/B/C detector handoff](A_B_C_DETECTOR_HANDOFF.md).
+
 ## Exact contract and limitations
 
 - A model supplies native `Results.boxes.xyxy/conf/cls` and its `names`

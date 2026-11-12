@@ -1,5 +1,11 @@
 # Jerry-C: Part C handoff (11 November 2026)
 
+**Current entry (12 November):** use [C_SOURCE_RELEASE.md](C_SOURCE_RELEASE.md)
+for setup diagnostics, source packaging and fresh-directory verification. The
+sections below preserve earlier verification history, not new browser/model
+acceptance. Real entrypoints exist as gated candidates and were tested with stubs;
+actual checkpoint inference remains unverified.
+
 ## Scope and current boundary
 This branch integrates the actual upstream B filtering, matching, change analysis and evaluation runner with C image loading, CLI, UI, rendering and export. It is **synthetic-mode software**, not a trained object detector. Real photographs can be inspected manually; the UI does not present fake detections as real-photo AI results.
 
@@ -10,6 +16,7 @@ The original standalone demo, original dirty checkout and 10 November worktree a
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -B scripts/check_c_setup.py --profile ui --port 8503
 .\.venv\Scripts\python.exe -m pip check
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m ruff check .
@@ -41,15 +48,28 @@ In addition to repository tests with a representative frame type, a local check 
 
 ## Verification obtained on the laptop
 - New project-only Python 3.12 environment installed successfully; old environments unchanged.
-- Complete repository suite: 257 tests passed (including upstream B and C UI/upload tests), zero skips in that run.
+- Historical initial release: 257 tests passed. **Current 11 Nov leader-fix version: 281 tests passed on Windows/Python 3.12**, including real-setting source-binding regression cases. This does not include real checkpoint inference. Read PR #9 CI for independent Linux results.
 - Ruff passed after scoped C fixes. No lint exclusions were added to hide production failures.
 - Actual headless Edge: HTTP health, actual file uploads, corrupt replacement/recovery, cleared stale downloads, wipe keyboard endpoints, no-AI photo mode, and four browser downloads byte-equal to CLI. Zero page exceptions and zero request failures. Mobile viewport/content were both 390 px.
 - Test browser and test server were stopped after verification. Browser acceptance is distinct from Streamlit AppTest.
 - The existing upstream GitHub workflow is kept byte-identical: Ubuntu/Python 3.11, `pip install -e .[dev]`, Ruff and pytest. The dev extra now includes Streamlit so UI/upload tests are exercised rather than skipped. Windows/Python 3.12 was validated locally. A proposed two-platform workflow is retained as documentation in `ci_matrix_proposal.yml.txt`, not as an active workflow: the current OAuth credential lacks workflow-write scope. A maintainer must separately approve/apply that optional workflow update. Consult actual PR checks for remote CI status.
 - No clean installation on another person's computer, real-photo accuracy, real model training, stress benchmark, independent teammate approval or merge is claimed.
 
+## 11 November leader review follow-up
+
+A concern was identified that the previous frozen `RealSettings` dataclass
+could be created directly or changed with `dataclasses.replace` while
+retaining an old `config_sha256`. It now stores source bytes/path and verifies
+effective parameters, source hash and local checkpoint hash on construction.
+Regression cases are in `tests/c_real/test_real_settings_provenance.py`.
+The *local checkpoint entrypoint exists* in UI/CLI, with stub-based tests,
+but A's real checkpoint has **not** been used or accepted.
+
+A explicitly accepted the detector ownership split and agreed to adopt/refine C's candidate on A's branch (PR #9 comment `6799449023`). C answered the version and frame questions in PR #9 comment `6805949361`: **no tested Ultralytics runtime version** (stub only), and C's `ImageFrame` is not yet the A PR #8 shared class. These decisions are recorded in `docs/A_B_C_DETECTOR_HANDOFF.md`. The final merged A-approved adapter and UI/CLI/runner real-photo parity remain pending. Do not claim model accuracy
+from synthetic or injected-stub tests.
+
 ## Remaining team handoff
-A still needs to provide the real dataset release/split, trainer, checkpoint identity, canonical class map, preprocessing/box-restoration settings and working detector. A/B/C must agree the shared interface and final alpha/threshold/NMS ownership. C real mode must validate checkpoint/config provenance before being enabled; it intentionally remains rejected here. B remains responsible for evaluation semantics; UI/CLI/runner agreement is covered on synthetic inputs.
+A still needs to provide the real dataset release/split, trainer, checkpoint identity, canonical class map, preprocessing/box-restoration settings and working detector. A/B/C must agree the shared interface and final alpha/threshold/NMS ownership. C real mode validates checkpoint/config provenance and fails closed when artifacts are missing; actual model acceptance has not happened. B remains responsible for evaluation semantics; UI/CLI/runner agreement is covered on synthetic inputs.
 
 Before merging, another teammate should review `Jerry-C`, read the CI outcome, and run the commands above. Do not merge A's unreviewed interface branch merely to make this demo work. The existing 14 November milestone can use this synthetic demo, clearly labelled; it is not completion of the real-model requirement.
 

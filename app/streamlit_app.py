@@ -188,7 +188,9 @@ if bundle is not None and not photo_only:
     st.dataframe(rows, hide_index=True, width="stretch")
     st.caption(
         "Display filtering never removes records from downloads. One object per class "
-        "is the current project scope; the class links the before/after records."
+        "is the current project scope. Images use the same object-N IDs as the table, "
+        "with selected detection confidence. Colors: green added, red removed, amber moved, "
+        "blue unchanged. These IDs link this pair only; they are not physical tracking IDs."
     )
     if rows:
         labels = [f"{row['Object ID']} | {row['Object']} | {row['Status']}" for row in rows]

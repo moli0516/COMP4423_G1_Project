@@ -10,7 +10,12 @@ from deskcheck.application.result_serializer import ResultSerializer
 
 def comparison_rows(result: dict, changes_only: bool = False) -> list[dict]:
     rows = []
-    for record in ResultSerializer().snapshot(result)["records"]:
+    data = ResultSerializer().snapshot(result)
+    scores = {
+        side: {d["class_id"]: d["confidence"] for d in data.get(f"{side}_detections", [])}
+        for side in ("before", "after")
+    }
+    for record in data["records"]:
         if changes_only and not record["indicates_change"]:
             continue
         class_id = record["class_id"]
@@ -23,6 +28,8 @@ def comparison_rows(result: dict, changes_only: bool = False) -> list[dict]:
                 "Status": record["status"],
                 "Before detection": record["before_detection_id"] or "absent",
                 "After detection": record["after_detection_id"] or "absent",
+                "Before confidence": scores["before"].get(class_id),
+                "After confidence": scores["after"].get(class_id),
                 "Normalized distance": record["distance_norm"],
                 "Movement threshold": record["movement_threshold"],
             }
