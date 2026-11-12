@@ -1,16 +1,15 @@
 """Owner A: export annotations to YOLO layout.
 
-Writes both label files AND copies image bytes into images/{split}/, so the
-exported tree is directly usable by Ultralytics YOLO and by any trainer that
-expects `dataset.yaml` to point at real files.
+Writes label files AND copies image bytes into images/{split}/, so the
+exported tree is directly usable by Ultralytics YOLO.
 
-Design decisions (per B's review, 11 Nov 2026):
-- Export key: `{pair_id}__{side}` where side is 'before' or 'after'.
-  Unique across the whole dataset because pair_id is unique per pair.
-- Image bytes are copied (not symlinked, not assumed external).
-- Shared image_id across pairs: allowed only if path+dimensions agree.
-  Otherwise the export aborts before writing anything.
-- Non-empty output directory: aborted unless `overwrite=True` is passed.
+Design decisions:
+- Export key: `{pair_id}__{side}` (unique across the dataset).
+- Image bytes are copied, not symlinked.
+- Shared image_id across pairs: allowed only if path+dims+annotations agree.
+- Non-empty output directory: rejected unless `overwrite=True`.
+  When overwrite=True, the old images/ labels/ trees are REMOVED before
+  writing, so a re-export cannot leave stale files behind.
 """
 
 from __future__ import annotations
@@ -49,21 +48,18 @@ def _yolo_line(class_id: int, bbox_xyxy: list[float], width: int, height: int) -
     return f"{class_id} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}"
 
 
-def _check_shared_image_consistency(
-    pairs: dict[str, AnnotatedPair],
-) -> dict[str, tuple[str, int, int, tuple[tuple[int, tuple[float, float, float, float]], ...]]]:
-    """Group every image_id across pairs; verify agreement on path/dims/annotations.
-
-    Returns {image_id: (source_path, width, height, annotation_fingerprint)}.
-    Raises ValueError on disagreement.
-    """
+def _check_shared_image_consistency(pairs: dict[str, AnnotatedPair]) -> None:
+    """Verify repeated image_ids agree on path/dims/annotations. Raise on conflict."""
     seen: dict[str, tuple[str, int, int, tuple]] = {}
     for pair in pairs.values():
         for side, image_id, source_path in (
             ("before", pair.before_image_id, pair.before_image_path),
             ("after", pair.after_image_id, pair.after_image_path),
         ):
-            objects = pair.manual_before_objects if side == "before" else pair.manual_after_objects
+            objects = (
+                pair.manual_before_objects if side == "before"
+                else pair.manual_after_objects
+            )
             fingerprint = tuple(
                 (obj["class_id"], tuple(float(v) for v in obj["bbox_xyxy"]))
                 for obj in objects
@@ -76,25 +72,46 @@ def _check_shared_image_consistency(
                         or existing[2] != record[2]
                         or existing[3] != record[3]):
                     raise ValueError(
-                        f"shared image_id {image_id!r} has conflicting representations:\n"
-                        f"  first:  path={existing[0]!r} dims=({existing[1]},{existing[2]})\n"
-                        f"  second: path={record[0]!r} dims=({record[1]},{record[2]})\n"
-                        f"Reject the export; resolve the inconsistency in annotations first."
+                        f"shared image_id {image_id!r} has conflicting "
+                        f"representations:\n"
+                        f"  first:  path={existing[0]!r} "
+                        f"dims=({existing[1]},{existing[2]})\n"
+                        f"  second: path={record[0]!r} "
+                        f"dims=({record[1]},{record[2]})\n"
+                        f"Resolve the inconsistency in annotations first."
                     )
             else:
                 seen[image_id] = record
-    return seen
 
 
-def _ensure_empty_or_overwrite(output_dir: Path, overwrite: bool) -> None:
+def _prepare_output_dir(output_dir: Path, overwrite: bool) -> None:
+    """Ensure output dir is either fresh or overwrite is allowed.
+
+    When overwrite=True, removes previous images/ labels/ and dataset.yaml
+    so stale files from a different export cannot survive.
+    """
     if not output_dir.exists():
+        output_dir.mkdir(parents=True)
         return
+
     has_content = any(output_dir.iterdir())
-    if has_content and not overwrite:
+    if not has_content:
+        return
+
+    if not overwrite:
         raise FileExistsError(
             f"export directory already has content: {output_dir}. "
             f"Pass overwrite=True (CLI: --force) to replace it."
         )
+
+    # Overwrite allowed: clear old export artifacts so nothing stale remains.
+    for sub in ("images", "labels"):
+        sub_dir = output_dir / sub
+        if sub_dir.exists():
+            shutil.rmtree(sub_dir)
+    yaml_path = output_dir / "dataset.yaml"
+    if yaml_path.exists():
+        yaml_path.unlink()
 
 
 def _copy_image(source_path: Path, dest_path: Path) -> None:
@@ -117,11 +134,12 @@ def export(
 ) -> ExportSummary:
     """Write YOLO images+labels+dataset.yaml. Does not mutate `pairs`."""
     output_dir = Path(output_dir)
-    _ensure_empty_or_overwrite(output_dir, overwrite)
 
-    # Verify shared-image consistency BEFORE writing anything.
-    # Side effect only: raises ValueError on conflicting representations.
+    # Validate shared-image consistency BEFORE any filesystem changes.
     _check_shared_image_consistency(pairs)
+
+    # Prepare output dir (may remove stale images/labels/yaml on overwrite).
+    _prepare_output_dir(output_dir, overwrite)
 
     # Build plan: for each split, list of (image_id, export_key, side, pair).
     plan: dict[str, list[tuple[str, str, str, AnnotatedPair]]] = {
@@ -144,8 +162,7 @@ def export(
                 key = _export_key(pair_id, side)
                 plan[split_name].append((image_id, key, side, pair))
 
-    # Write dataset.yaml first (so failures later don't leave a partial tree).
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Write dataset.yaml first.
     dataset_yaml = (
         f"path: {output_dir.resolve()}\n"
         f"train: images/train\n"
@@ -168,7 +185,8 @@ def export(
 
         for image_id, key, side, pair in entries:
             source_path = Path(
-                pair.before_image_path if side == "before" else pair.after_image_path
+                pair.before_image_path if side == "before"
+                else pair.after_image_path
             )
             extension = source_path.suffix or ".jpg"
             dest_image = images_dir / f"{key}{extension}"

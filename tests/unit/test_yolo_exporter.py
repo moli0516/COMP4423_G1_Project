@@ -237,3 +237,64 @@ def test_export_keeps_splits_separate(tmp_path: Path) -> None:
     assert any((out / "images" / "train").iterdir())
     assert any((out / "images" / "val").iterdir())
     assert not any((out / "images" / "test").iterdir())
+
+
+# ---------- overwrite removes stale files ----------
+
+
+def test_overwrite_removes_stale_files_from_previous_export(tmp_path: Path) -> None:
+    """Re-export with fewer pairs must not leave old images/labels behind."""
+    from deskcheck.data.yolo_exporter import ExportSummary as _ES  # noqa: F401
+
+    # First export: 3 pairs
+    p1 = _make_pair_with_images(tmp_path, "p1", "g1")
+    p2 = _make_pair_with_images(tmp_path, "p2", "g2")
+    p3 = _make_pair_with_images(tmp_path, "p3", "g3")
+    manifest_a = _manifest({"train": ["p1", "p2", "p3"], "val": [], "test": []})
+    out = tmp_path / "export"
+    export({"p1": p1, "p2": p2, "p3": p3}, manifest_a, out)
+
+    # Confirm first export has 6 images (3 pairs × 2 sides)
+    first_images = list((out / "images" / "train").iterdir())
+    assert len(first_images) == 6
+
+    # Second export with overwrite=True, only 1 pair
+    manifest_b = _manifest({"train": ["p1"], "val": [], "test": []})
+    export({"p1": p1}, manifest_b, out, overwrite=True)
+
+    # Only p1's 2 images should exist now
+    second_images = sorted(p.name for p in (out / "images" / "train").iterdir())
+    assert second_images == ["p1__after.png", "p1__before.png"]
+
+    second_labels = sorted(p.name for p in (out / "labels" / "train").iterdir())
+    assert second_labels == ["p1__after.txt", "p1__before.txt"]
+
+
+def test_overwrite_removes_stale_split_directories(tmp_path: Path) -> None:
+    """If a split existed before and no longer does, its dir must be gone."""
+    p1 = _make_pair_with_images(tmp_path, "p1", "g1")
+    p2 = _make_pair_with_images(tmp_path, "p2", "g2")
+    manifest_a = _manifest({"train": ["p1"], "val": ["p2"], "test": []})
+    out = tmp_path / "export"
+    export({"p1": p1, "p2": p2}, manifest_a, out)
+    assert (out / "images" / "val").exists()
+
+    # Re-export with everything in train
+    manifest_b = _manifest({"train": ["p1", "p2"], "val": [], "test": []})
+    export({"p1": p1, "p2": p2}, manifest_b, out, overwrite=True)
+
+    # val/ labels/ image dirs should be gone or empty (no files)
+    val_imgs = out / "images" / "val"
+    if val_imgs.exists():
+        assert not any(val_imgs.iterdir()), "val/ should be empty after overwrite"
+
+
+def test_refuse_overwrite_without_flag(tmp_path: Path) -> None:
+    p1 = _make_pair_with_images(tmp_path, "p1", "g1")
+    manifest = _manifest({"train": ["p1"], "val": [], "test": []})
+    out = tmp_path / "export"
+    export({"p1": p1}, manifest, out)
+
+    import pytest as _pytest
+    with _pytest.raises(FileExistsError, match="already has content"):
+        export({"p1": p1}, manifest, out, overwrite=False)
