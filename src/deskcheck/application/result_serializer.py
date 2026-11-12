@@ -3,7 +3,9 @@
 import csv
 import io
 import json
+from math import isfinite
 
+from deskcheck.application.app_config import CLASS_NAMES
 from deskcheck.domain.bounding_box import BoundingBox
 from deskcheck.evaluation.event_evaluator import EventEvaluator
 
@@ -57,6 +59,56 @@ class ResultSerializer:
                 box = record[f"{side}_box"]
                 if box is not None:
                     BoundingBox(*box).validate(*size)
+        if data.get("schema_version", "1.0") != "1.0":
+            raise ValueError("Unsupported result schema version")
+        # Additive result extension; older event-only fixtures remain supported.
+        sides = ("before_detections", "after_detections")
+        if any(side in data for side in sides):
+            if not all(side in data for side in sides):
+                raise ValueError("Retained detections must include both sides")
+            for side in sides:
+                selected = data[side]
+                if not isinstance(selected, list):
+                    raise TypeError("Retained detections must be a list")
+                used_classes = set()
+                used_ids = set()
+                for detection in selected:
+                    if not isinstance(detection, dict) or set(detection) != {
+                        "detection_id",
+                        "class_id",
+                        "confidence",
+                        "bbox_xyxy",
+                    }:
+                        raise ValueError("Retained detection fields are invalid")
+                    name = detection["detection_id"]
+                    class_id = detection["class_id"]
+                    confidence = detection["confidence"]
+                    box = detection["bbox_xyxy"]
+                    if not isinstance(name, str) or not name.strip() or name in used_ids:
+                        raise ValueError("Retained detection IDs must be unique strings")
+                    if type(class_id) is not int or not 0 <= class_id < len(CLASS_NAMES):
+                        raise ValueError("Retained detection class is invalid")
+                    if class_id in used_classes:
+                        raise ValueError("Only one B-filtered detection per class is permitted")
+                    if (
+                        type(confidence) not in (int, float)
+                        or not isfinite(confidence)
+                        or not 0 <= confidence <= 1
+                    ):
+                        raise ValueError("Retained detection confidence is invalid")
+                    if (
+                        not isinstance(box, list)
+                        or len(box) != 4
+                        or any(
+                            type(coord) not in (int, float) or not isfinite(coord) for coord in box
+                        )
+                    ):
+                        raise ValueError(
+                            "Retained bounding box must contain four finite coordinates"
+                        )
+                    BoundingBox(*box).validate(*size)
+                    used_ids.add(name)
+                    used_classes.add(class_id)
         return data
 
     def to_json(self, result: dict) -> str:

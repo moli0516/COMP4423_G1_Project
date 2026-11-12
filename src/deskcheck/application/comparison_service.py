@@ -79,8 +79,30 @@ class ComparisonService:
         else:
             metadata["warning"] = "Synthetic software integration only; no trained model inference."
         return {
+            "schema_version": "1.0",
             "pair_id": pair_id,
             "image_size": list(size),
+            # After B's confidence/one-per-class filtering, before matching.
+            # Retain canonical original-pixel predictions for A's future AP evaluation.
+            "before_detections": self._selected_transport(selected[0]),
+            "after_detections": self._selected_transport(selected[1]),
             "records": records,
-            "metadata": metadata,
+            "metadata": {**metadata, "prediction_scope": "post_B_filter"},
         }
+
+    @staticmethod
+    def _selected_transport(detections) -> list[dict]:
+        return [
+            {
+                "detection_id": detection.detection_id,
+                "class_id": detection.class_id,
+                "confidence": detection.confidence,
+                "bbox_xyxy": [
+                    float(detection.box.x1),
+                    float(detection.box.y1),
+                    float(detection.box.x2),
+                    float(detection.box.y2),
+                ],
+            }
+            for detection in detections
+        ]
