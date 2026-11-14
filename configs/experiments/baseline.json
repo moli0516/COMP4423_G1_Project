@@ -1,0 +1,52 @@
+{
+  "experiment_id": "E0",
+  "owner": "A",
+  "hypothesis": "Fine-tune a pretrained YOLO detector on DeskCheck data; record the baseline for E1/E2 comparison.",
+  "baseline_reference": "pretrained:yolov8n",
+  "model": {
+    "architecture": "yolov8n",
+    "pretrained_weights": "yolov8n.pt",
+    "trainable_layers": "all"
+  },
+  "data": {
+    "dataset_yaml": "data/exports/yolo/dataset.yaml",
+    "split_seed": 42,
+    "dataset_release": "v1",
+    "class_map_version": "1.0"
+  },
+  "preprocessing": {
+    "image_size": 640,
+    "color_mode": "RGB",
+    "letterbox": true
+  },
+  "augmentation": {
+    "hsv_h": 0.015,
+    "hsv_s": 0.7,
+    "hsv_v": 0.4,
+    "fliplr": 0.5,
+    "mosaic": 1.0,
+    "scale": 0.5
+  },
+  "training": {
+    "epochs": 100,
+    "batch_size": 16,
+    "optimizer": "SGD",
+    "lr0": 0.01,
+    "weight_decay": 0.0005,
+    "patience": 20,
+    "seed": 42,
+    "device": "auto"
+  },
+  "validation": {
+    "split": "val",
+    "checkpoint_selection": "best_mAP50_95"
+  },
+  "inference": {
+    "confidence_threshold": 0.25,
+    "nms_iou_threshold": 0.45
+  },
+  "outputs": {
+    "run_dir": "runs/experiments/E0_baseline"
+  },
+  "notes": "Placeholder hyperparameters; freeze after first successful run."
+}
