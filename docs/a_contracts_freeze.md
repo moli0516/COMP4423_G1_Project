@@ -92,22 +92,17 @@ confirmed.
 **Smallest genuine movement** (P1): d ≈ 0.02–0.03.
 **Largest control jitter** (P6): ≈ 0.
 
-### 3c. Proposed τ
+### 3c. Frozen τ (confirmed by B)
 
-**τ = 0.02** (normalized center displacement).
+**τ = 0.02152951369355096** (normalized center displacement).
 
-Justification: τ is set **below** the smallest genuine movement measured in
-the pilot (P1, bottle ~3 cm, estimated d ≈ 0.02–0.03) so that
-human-perceptible movements register as "moved", and **well above** the
-camera jitter floor measured in P6 (≈ 0) so that no-change pairs remain
-"unchanged". The threshold lies in the gap between the two distributions.
+B measured from the 12 pilot boxes (all 24 boxes per class across the 6 pilot pairs) and selected τ as the midpoint between:
+- Maximum normalized displacement among untouched (no-change) objects
+- Minimum normalized displacement among reportable movements
 
-Any pair where a matched object's center moves more than 2% of the image
-diagonal (in normalized coordinates) is classified as "moved". Equal to or
-below → "unchanged".
+Scope: 6 pilot pairs from one continuous capture session. Not a real-detector or cross-session validation result.
 
-This τ will be frozen before test annotation begins and will not be
-revised using validation or test results.
+Movement rule: moved iff d > τ; d ≤ τ is unchanged.
 
 ### 3d. Pilot pair mapping (for reproducibility)
 
