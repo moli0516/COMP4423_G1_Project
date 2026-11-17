@@ -494,3 +494,22 @@ def test_export_atomic_swap_no_partial_on_write_failure(tmp_path: Path) -> None:
     # No temp or old dirs remain.
     leftovers = [p for p in tmp_path.iterdir() if p.name.startswith(".export")]
     assert not leftovers, f"temp/old dirs leaked: {leftovers}"
+
+
+def test_dataset_yaml_contains_final_path_not_tmp(tmp_path: Path) -> None:
+    """After atomic publish, dataset.yaml must point at the final output_dir,
+    not the temporary staging path."""
+    p1 = _make_pair_with_images(tmp_path, "p1", "g1")
+    manifest = _manifest({"train": ["p1"], "val": [], "test": []})
+    out = tmp_path / "export"
+
+    export({"p1": p1}, manifest, out)
+
+    yaml_text = (out / "dataset.yaml").read_text(encoding="utf-8")
+    resolved_out = str(out.resolve())
+    assert f"path: {resolved_out}" in yaml_text, (
+        f"dataset.yaml should contain 'path: {resolved_out}', got: {yaml_text}"
+    )
+    # Must not contain any tmp dir
+    assert ".tmp-" not in yaml_text, f"tmp path leaked into yaml: {yaml_text}"
+    assert ".export.tmp" not in yaml_text, f"tmp path leaked: {yaml_text}"

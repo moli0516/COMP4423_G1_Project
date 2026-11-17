@@ -345,3 +345,26 @@ def test_audit_missing_status_in_test_fails(tmp_path: Path) -> None:
     report = audit(pairs, manifest)
     assert not report.ok
     assert any("test split missing statuses" in e for e in report.errors)
+
+
+def test_audit_rejects_shared_source_path_across_splits(tmp_path: Path) -> None:
+    """Two different image_ids pointing at the same source file must be rejected
+    even when image_ids differ — the underlying file would leak across splits."""
+    p_train = _make_valid_pair("p_tr", "g_tr")
+    p_test = _make_valid_pair("p_te", "g_te")
+    # Different image_ids but same source path
+    p_test["manual_before_objects"] = p_test["manual_before_objects"]
+    p_train["before_image_path"] = "shared/photo.jpg"
+    p_test["before_image_path"] = "shared/photo.jpg"  # collision
+    # Ensure image_ids differ so only the path triggers the error
+    p_train["before_image_id"] = "train_img"
+    p_test["before_image_id"] = "test_img"
+
+    pairs, manifest = _write(tmp_path, [p_train, p_test],
+                              {"train": ["p_tr"], "val": [], "test": ["p_te"]})
+    report = audit(pairs, manifest)
+    assert not report.ok
+    assert any(
+        "image source path" in e and "shared across splits" in e
+        for e in report.errors
+    ), f"expected path collision error, got: {report.errors}"

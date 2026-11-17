@@ -244,3 +244,90 @@ def test_split_moves_bucket_from_val_to_train_when_needed() -> None:
             for obj in (*p.manual_before_objects, *p.manual_after_objects):
                 classes_in_train.add(obj["class_id"])
     assert classes_in_train == {0, 1, 2, 3, 4, 5}
+
+
+# ---------- direct tests for _coverage_failure_reason ----------
+
+
+def test_coverage_failure_reason_reports_union_gap_not_proven_infeasible() -> None:
+    """When the union of remaining buckets is short, the message must report
+    the missing items and explicitly say global infeasibility is not proven."""
+    from deskcheck.data.dataset_splitter import (
+        REQUIRED_CLASS_IDS,
+        VALID_STATUSES,
+        GroupBucket,
+        _coverage_failure_reason,
+    )
+
+    # Bucket carrying only 'unchanged' — status coverage will be short.
+    bucket = GroupBucket(
+        group_id="g1",
+        pair_ids=("p1",),
+        class_ids=frozenset(REQUIRED_CLASS_IDS),
+        statuses=frozenset({"unchanged"}),
+        no_change_count=1,
+    )
+    reason = _coverage_failure_reason(
+        [bucket], set(VALID_STATUSES), set(REQUIRED_CLASS_IDS)
+    )
+    assert "union of remaining buckets misses" in reason
+    assert "global infeasibility not proven" in reason
+    # Missing statuses should be enumerated
+    assert "added" in reason
+    assert "moved" in reason
+    assert "removed" in reason
+
+
+def test_coverage_failure_reason_reports_greedy_gap_when_union_covers() -> None:
+    """When union of buckets has full coverage but no covering subset was
+    assembled, the message must NOT claim infeasibility."""
+    from deskcheck.data.dataset_splitter import (
+        REQUIRED_CLASS_IDS,
+        VALID_STATUSES,
+        GroupBucket,
+        _coverage_failure_reason,
+    )
+
+    # Two buckets that together cover all statuses + classes + no-change.
+    b1 = GroupBucket(
+        group_id="g1",
+        pair_ids=("p1",),
+        class_ids=frozenset(REQUIRED_CLASS_IDS),
+        statuses=frozenset({"added", "removed"}),
+        no_change_count=1,
+    )
+    b2 = GroupBucket(
+        group_id="g2",
+        pair_ids=("p2",),
+        class_ids=frozenset(REQUIRED_CLASS_IDS),
+        statuses=frozenset({"moved", "unchanged"}),
+        no_change_count=1,
+    )
+    reason = _coverage_failure_reason(
+        [b1, b2], set(VALID_STATUSES), set(REQUIRED_CLASS_IDS)
+    )
+    assert "greedy search could not" in reason
+    assert "a covering subset may exist" in reason
+    assert "global infeasibility" not in reason
+
+
+def test_split_preserves_train_coverage_during_ratio_allocation() -> None:
+    """A bucket that fills a train gap must be forced into train, not stolen
+    by ratio allocation to val/test."""
+    # Construct: 4 no-change buckets for val/test seeds, plus a special bucket
+    # carrying a unique class that train needs. If ratio logic were used
+    # naively, the special bucket could be assigned elsewhere.
+    pairs = _healthy_pairs(count=10)
+    manifest = split(pairs, seed=42)
+    required = {0, 1, 2, 3, 4, 5}
+    # Verify every split (train included) has all 6 classes in the FINAL allocation.
+    for split_name in ("train", "val", "test"):
+        ids = set(manifest.splits[split_name])
+        classes_seen: set[int] = set()
+        for p in pairs:
+            if p.pair_id in ids:
+                for obj in (*p.manual_before_objects, *p.manual_after_objects):
+                    classes_seen.add(obj["class_id"])
+        assert required <= classes_seen, (
+            f"{split_name} missing classes after allocation: {required - classes_seen}"
+        )

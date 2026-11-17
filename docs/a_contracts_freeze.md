@@ -74,40 +74,45 @@ dataset_validator.py currently requires all four in val/test.
 
 ### 3b. Pilot evidence (11 Nov 2026)
 
-Six pilot pairs were captured on a single desk with one fixed camera
-position and stable lighting. Twelve photographs total. The independent
-no-change control pair (P6) shows zero measurable drift — camera stability
-confirmed.
+Pilot scope: 6 pairs = 12 images from one continuous capture session
+(`pilot_g01`), single fixed camera position, stable lighting.
 
-| Pair | Change | Movement magnitude | Estimated d (normalized) | Verdict |
-|---|---|---|---|---|
-| P1 | bottle moved ~3 cm | small | ≈ 0.02–0.03 | clearly moved |
-| P2 | cup moved ~10 cm diagonal | medium | ≈ 0.06–0.08 | clearly moved |
-| P3 | scissors moved left→right of desk | large | ≈ 0.35–0.50 | clearly moved (far) |
-| P4 | mouse removed | n/a | n/a | removed |
-| P5 | book added | n/a | n/a | added |
-| P6 | nothing touched | none | ≈ 0 (control) | unchanged |
+Measured quantities:
+- **34 matched-object distances** across the 6 pairs, computed from
+  manual CVAT bounding boxes as normalized center displacement
+  d = hypot(Δcx, Δcy) / hypot(W, H).
+- **31 untouched** (present on both sides, no intentional movement).
+- **3 movements** (intentional): small, medium, large.
+- **1 added object** and **1 removed object** excluded from the distance
+  distribution (no matched pair to measure).
 
-**Camera jitter floor** (P6): below measurable threshold (~0).
-**Smallest genuine movement** (P1): d ≈ 0.02–0.03.
-**Largest control jitter** (P6): ≈ 0.
+Measured intentional movements:
 
-### 3c. Proposed τ
+| Pair | Change | Measured d |
+|---|---|---|
+| P1 | bottle moved ~3 cm | **0.0411710565** |
+| P2 | cup moved ~10 cm diagonal | (B's report) |
+| P3 | scissors moved left→right | (B's report) |
 
-**τ = 0.02** (normalized center displacement).
+B's selection: τ = 0.02152951369355096, chosen as the midpoint between
+the maximum untouched distance and the minimum reportable movement
+distance in the 34 measured values.
 
-Justification: τ is set **below** the smallest genuine movement measured in
-the pilot (P1, bottle ~3 cm, estimated d ≈ 0.02–0.03) so that
-human-perceptible movements register as "moved", and **well above** the
-camera jitter floor measured in P6 (≈ 0) so that no-change pairs remain
-"unchanged". The threshold lies in the gap between the two distributions.
+Scope statement: this acceptance covers the manual-box pilot only. It is
+**not** a real-detector validation and **not** a cross-session validation
+result. τ will be applied unchanged to formal annotation and evaluation.
 
-Any pair where a matched object's center moves more than 2% of the image
-diagonal (in normalized coordinates) is classified as "moved". Equal to or
-below → "unchanged".
+### 3c. Frozen τ (confirmed by B)
 
-This τ will be frozen before test annotation begins and will not be
-revised using validation or test results.
+**τ = 0.02152951369355096** (normalized center displacement).
+
+B measured from the 12 pilot boxes (all 24 boxes per class across the 6 pilot pairs) and selected τ as the midpoint between:
+- Maximum normalized displacement among untouched (no-change) objects
+- Minimum normalized displacement among reportable movements
+
+Scope: 6 pilot pairs from one continuous capture session. Not a real-detector or cross-session validation result.
+
+Movement rule: moved iff d > τ; d ≤ τ is unchanged.
 
 ### 3d. Pilot pair mapping (for reproducibility)
 
