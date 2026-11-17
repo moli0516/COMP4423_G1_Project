@@ -231,6 +231,7 @@ def _check_group_integrity(
 ) -> None:
     group_to_split: dict[str, str] = {}
     image_to_split: dict[str, str] = {}
+    path_to_split: dict[str, str] = {}
     for split_name, pair_ids in manifest.splits.items():
         for pair_id in pair_ids:
             pair = pairs[pair_id]
@@ -241,13 +242,24 @@ def _check_group_integrity(
                     f"({group_to_split[gid]!r} and {split_name!r})"
                 )
             group_to_split[gid] = split_name
-            for image_id in (pair.before_image_id, pair.after_image_id):
+            for image_id, image_path in (
+                (pair.before_image_id, pair.before_image_path),
+                (pair.after_image_id, pair.after_image_path),
+            ):
                 if image_id in image_to_split and image_to_split[image_id] != split_name:
                     errors.append(
                         f"image_id {image_id!r} shared across splits "
                         f"({image_to_split[image_id]!r} and {split_name!r})"
                     )
                 image_to_split[image_id] = split_name
+                # Different image_ids can point at the same source file.
+                # That's a silent leak: reject any shared source path across splits.
+                if image_path in path_to_split and path_to_split[image_path] != split_name:
+                    errors.append(
+                        f"image source path {image_path!r} shared across splits "
+                        f"({path_to_split[image_path]!r} and {split_name!r})"
+                    )
+                path_to_split[image_path] = split_name
 
 
 def _coverage(
