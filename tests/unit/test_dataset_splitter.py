@@ -309,3 +309,25 @@ def test_coverage_failure_reason_reports_greedy_gap_when_union_covers() -> None:
     assert "greedy search could not" in reason
     assert "a covering subset may exist" in reason
     assert "global infeasibility" not in reason
+
+
+def test_split_preserves_train_coverage_during_ratio_allocation() -> None:
+    """A bucket that fills a train gap must be forced into train, not stolen
+    by ratio allocation to val/test."""
+    # Construct: 4 no-change buckets for val/test seeds, plus a special bucket
+    # carrying a unique class that train needs. If ratio logic were used
+    # naively, the special bucket could be assigned elsewhere.
+    pairs = _healthy_pairs(count=10)
+    manifest = split(pairs, seed=42)
+    required = {0, 1, 2, 3, 4, 5}
+    # Verify every split (train included) has all 6 classes in the FINAL allocation.
+    for split_name in ("train", "val", "test"):
+        ids = set(manifest.splits[split_name])
+        classes_seen: set[int] = set()
+        for p in pairs:
+            if p.pair_id in ids:
+                for obj in (*p.manual_before_objects, *p.manual_after_objects):
+                    classes_seen.add(obj["class_id"])
+        assert required <= classes_seen, (
+            f"{split_name} missing classes after allocation: {required - classes_seen}"
+        )

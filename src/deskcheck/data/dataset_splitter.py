@@ -196,73 +196,6 @@ def _assign_coverage_targets(
     return assignment
 
 
-def _ensure_train_class_coverage(
-    buckets: list[GroupBucket],
-    assignment: dict[str, str],
-    required_classes: set[int],
-) -> None:
-    """Verify train (buckets not assigned to val/test) covers all required classes.
-
-    If train is missing classes, attempt to move small val/test buckets back
-    to train without breaking val/test coverage. If impossible, raise.
-    """
-    train_bucket_ids = [b.group_id for b in buckets if b.group_id not in assignment]
-    train_classes: set[int] = set()
-    for b in buckets:
-        if b.group_id in train_bucket_ids:
-            train_classes |= b.class_ids
-
-    missing = required_classes - train_classes
-    if not missing:
-        return
-
-    # Try moving small buckets out of val/test back into train to fill gaps.
-    # Only move buckets whose removal doesn't strip val/test of their required
-    # coverage (checked by simulating the removal).
-    moveable = sorted(
-        [b for b in buckets if b.group_id in assignment],
-        key=lambda b: (len(b.pair_ids), -len(b.class_ids & missing)),
-    )
-
-    for candidate in moveable:
-        if not (candidate.class_ids & missing):
-            continue
-        # Would moving this bucket break its current split's coverage?
-        remaining_in_split = [
-            b for b in buckets
-            if assignment.get(b.group_id) == assignment[candidate.group_id]
-            and b.group_id != candidate.group_id
-        ]
-        split_statuses: set[str] = set()
-        split_classes: set[int] = set()
-        split_has_no_change = False
-        for b in remaining_in_split:
-            split_statuses |= b.statuses
-            split_classes |= b.class_ids
-            if b.no_change_count > 0:
-                split_has_no_change = True
-        if not (required_classes <= split_classes):
-            continue  # would break class coverage in val/test
-        if not (set(VALID_STATUSES) <= split_statuses):
-            continue  # would break status coverage in val/test
-        if not split_has_no_change:
-            continue  # would break no-change coverage in val/test
-
-        # Safe to move
-        train_bucket_ids.append(candidate.group_id)
-        train_classes |= candidate.class_ids
-        del assignment[candidate.group_id]
-        missing = required_classes - train_classes
-        if not missing:
-            return
-
-    raise ValueError(
-        f"cannot guarantee train class coverage: missing classes "
-        f"{sorted(missing)} even after reassigning from val/test. "
-        f"Collect more data so every class appears in more groups."
-    )
-
-
 def split(
     pairs: list[AnnotatedPair],
     seed: int = 42,
@@ -285,14 +218,18 @@ def split(
 
     assignment = _assign_coverage_targets(buckets)
 
-    # NEW: guarantee train has all required classes, moving buckets if needed.
-    _ensure_train_class_coverage(
-        buckets, assignment, set(REQUIRED_CLASS_IDS)
-    )
+    # Coverage-preserving allocation:
+    # 1. Compute which required classes are not yet represented in the pool
+    #    of buckets that will be assigned to train.
+    # 2. Force any bucket that fills a train gap into train first.
+    # 3. Then assign the remaining buckets by ratio.
+    # 4. Verify train ends with all required classes.
 
-    remaining = [b for b in buckets if b.group_id not in assignment]
-    rng = random.Random(seed)
-    rng.shuffle(remaining)
+    unassigned = [b for b in buckets if b.group_id not in assignment]
+    train_candidate_classes: set[int] = set()
+    for b in unassigned:
+        train_candidate_classes |= b.class_ids
+    missing_train = set(REQUIRED_CLASS_IDS) - train_candidate_classes
 
     target_counts = {
         name: max(round(target_ratios[name] * total_pairs), 1)
@@ -304,7 +241,22 @@ def split(
         if target is not None:
             current[target] += len(bucket.pair_ids)
 
-    for bucket in remaining:
+    # Sort: gap-filling buckets first, then by pair count (smallest first, so
+    # they're easy to slot without breaking ratio balance).
+    rng = random.Random(seed)
+    rng.shuffle(unassigned)
+    unassigned.sort(
+        key=lambda b: (0 if (b.class_ids & missing_train) else 1, len(b.pair_ids))
+    )
+
+    for bucket in unassigned:
+        if bucket.class_ids & missing_train:
+            # Force into train to preserve coverage.
+            assignment[bucket.group_id] = "train"
+            current["train"] += len(bucket.pair_ids)
+            missing_train -= bucket.class_ids
+            continue
+        # Otherwise assign by ratio.
         best_split = min(
             target_ratios,
             key=lambda name: (
@@ -313,6 +265,19 @@ def split(
         )
         assignment[bucket.group_id] = best_split
         current[best_split] += len(bucket.pair_ids)
+
+    # Final verification: train actually has all required classes.
+    final_train_classes: set[int] = set()
+    for b in buckets:
+        if assignment.get(b.group_id) == "train":
+            final_train_classes |= b.class_ids
+    missing_after = set(REQUIRED_CLASS_IDS) - final_train_classes
+    if missing_after:
+        raise ValueError(
+            f"cannot guarantee train class coverage after allocation: "
+            f"missing {sorted(missing_after)}. Collect more data so every "
+            f"class appears in more groups."
+        )
 
     splits: dict[str, list[str]] = {"train": [], "val": [], "test": []}
     for bucket in buckets:
