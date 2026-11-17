@@ -96,7 +96,7 @@ def _copy_image(source_path: Path, dest_path: Path) -> None:
     shutil.copyfile(source_path, dest_path)
 
 
-def _write_into(target: Path, pairs: dict[str, AnnotatedPair],
+def _write_into(target: Path, final_output_dir: Path, pairs: dict[str, AnnotatedPair],
                 manifest: SplitManifest, class_names: tuple[str, ...]) -> tuple[int, int, int, int]:
     """Write images/labels/dataset.yaml into `target`. Caller guarantees
     `target` is fresh. Returns (images_written, labels_written,
@@ -126,7 +126,7 @@ def _write_into(target: Path, pairs: dict[str, AnnotatedPair],
 
     # dataset.yaml
     dataset_yaml = (
-        f"path: {target.resolve()}\n"
+        f"path: {final_output_dir.resolve()}\n"
         f"train: images/train\n"
         f"val: images/val\n"
         f"test: images/test\n"
@@ -208,7 +208,7 @@ def export(
 
     try:
         images_written, labels_written, empty_labels, dedup = _write_into(
-            tmp_dir, pairs, manifest, class_names
+            tmp_dir, output_dir, pairs, manifest, class_names
         )
     except Exception:
         # Rollback: no partial export left behind.
