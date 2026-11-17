@@ -108,14 +108,16 @@ def _coverage_failure_reason(
     missing_classes = required_classes - union_classes
     if missing_statuses or missing_classes or not has_no_change:
         return (
-            f"infeasible: union of all groups still misses "
+            f"union of remaining buckets misses "
             f"statuses={sorted(missing_statuses)}, "
             f"classes={sorted(missing_classes)}, "
-            f"no_change_pair={'yes' if has_no_change else 'no'}"
+            f"no_change_pair={'yes' if has_no_change else 'no'}; "
+            f"global infeasibility not proven"
         )
     return (
         "greedy search could not assemble a covering set even though the "
-        "union of remaining buckets has full coverage"
+        "union of remaining buckets has full coverage; a covering subset "
+        "may exist"
     )
 
 
