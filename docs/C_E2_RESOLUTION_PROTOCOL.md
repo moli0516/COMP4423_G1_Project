@@ -7,13 +7,16 @@ input-resolution comparison against A's E0 baseline.
 **Status: NOT EXECUTED.** The file explicitly says STUB, so no
 measurements or selected checkpoint are claimed.
 
-12 November recheck of the same A commit: `scripts/train.py` still exposes
-only `--config` and exits 2 with `Not implemented: validate/export training
-data and implement ModelTrainer first.` No runnable trainer interface exists
-for a C execution wrapper yet. Do not invent `--data`/`--run-dir` flags from
-the older blueprint or add a competing trainer. Next executable E2 step belongs
-to A: deliver the runnable trainer and frozen E0 inputs; C then binds a preflight
-and fresh-run invocation to that actual interface, before any approved training.
+**Historical 12 November finding (superseded):** The older A commit exposed
+only `--config` and exited with `Not implemented`; no runnable shared trainer
+existed at that time. **18 November update:** A PR #8 at `1a4974b` now has a
+shared trainer CLI with `--config`, `--run-dir` and `--dataset` options, but is
+unmerged. The trainer's standalone `load_config(config_path)` cannot yet resolve
+E2's raw `inherit` entries. C's 14/14 config preflight validated a separate
+fully resolved candidate without running training. A must approve the config
+resolution, frozen E0 data and batch-size controls first. See
+`docs/C_E2_PREFLIGHT_20261118.md` and `docs/C_E2_DECISION_BRIEF_20261118.md`.
+Do not create a competing trainer or claim E2 performance.
 
 ## Question and comparison
 

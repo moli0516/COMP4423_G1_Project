@@ -1,6 +1,6 @@
 # C release compatibility and macOS handoff — 18 Nov 2026
 
-Scope: focused C release-tool update requested by group leader. No modification to ComparisonService, B algorithms, A dataset splitter, YOLO inference or E2 training. Keep PR #9 Draft pending separate review.
+Scope: focused C release-tool update requested by group leader. No modification to ComparisonService, B algorithms, A dataset splitter, YOLO inference or E2 training. The group lead reports Mac execution and code review completed; keep PR #9 Draft until final documentation review, required checks against main, and explicit merge approval.
 
 ## Python 3.13 reserved-path compatibility
 The old source release verifier used PureWindowsPath.is_reserved(), deprecated on Python 3.13. The group leader observed 507 warnings on macOS Python 3.13.7. Direct replacement with os.path.isreserved() is not portable to macOS/Linux and does not support Python 3.11/3.12.
@@ -14,6 +14,10 @@ Start Jerry-C.sh is a macOS/Linux Bash script:
 - Validates DESKCHECK_PORT (default 8503), probes dependencies/config/port using check_c_setup.py, and only then launches Streamlit on localhost.
 - Never installs dependencies, downloads a model, disables checks or terminates unrelated services.
 - Is included as a required entry in deterministic C source ZIP with Unix executable permissions.
+
+## Verified native Mac execution (group-lead report, 18 Nov 2026)
+
+At C source commit `273d1007`, the lead ran a **fresh checkout and new venv** on macOS 26.1 / Python 3.13.7. Installation and pip check, targeted release tests with deprecation warnings treated as errors, full pytest, Ruff, setup checker, synthetic CLI (4 records / 3 changes), and real `bash "Start Jerry-C.sh"` startup passed; localhost root and health both returned HTTP 200. The earlier manual-photo UI inspection was not repeated. The lead also reports completing code review and a local A+B+C integration at `24738f5`; its **546 passed** and **34 coverage checks** belong to the earlier tested integration tree, not a new full-suite rerun of the final documentation/permission-only revision. This is not trained-model or E2 acceptance, nor an automatic merge authorization. See the lead's [PR #9 Mac receipt](https://github.com/moli0516/COMP4423_G1_Project/pull/9#issuecomment-6980402696).
 
 ## Fresh macOS installation and review
 
@@ -37,7 +41,7 @@ Record source SHA, OS, Python/pip versions, exact installation commands and exit
 
 ## Evidence boundaries
 - Offline Linux sandbox Python 3.13.5: 62 relevant pytest cases passed, including 507 successive release verifications with DeprecationWarning treated as an error. NOT macOS.
-- Windows laptop verification requires a separate exact-commit receipt.
+- Windows 11 / Python 3.12.10 clean-venv verification was completed at `273d1007`: full pytest 381 passed, 10 POSIX skips; real Windows launcher, synthetic CLI and actual Edge UI/export parity passed. See `docs/C_STANDALONE_ACCEPTANCE_20261118.md` for source ZIP and raw receipt paths.
 - No real YOLO inference, held-out evaluation, or E2 run performed; A/B gates still apply.
 - The reported A splitter 9 failures/25 passes are owned by A. This release change does not touch their code.
-- Group leader explicitly requested separate setup/source-release review. Green tests do not mean approval to merge.
+- The lead now reports code review completed; final documentation-delta review and required checks against `main` remain before any explicit merge approval. Passing tests do not by themselves authorize merging.

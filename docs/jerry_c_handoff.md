@@ -69,7 +69,7 @@ A explicitly accepted the detector ownership split and agreed to adopt/refine C'
 from synthetic or injected-stub tests.
 
 ## Remaining team handoff
-A still needs to provide the real dataset release/split, trainer, checkpoint identity, canonical class map, preprocessing/box-restoration settings and working detector. A/B/C must agree the shared interface and final alpha/threshold/NMS ownership. C real mode validates checkpoint/config provenance and fails closed when artifacts are missing; actual model acceptance has not happened. B remains responsible for evaluation semantics; UI/CLI/runner agreement is covered on synthetic inputs.
+A PR #8 now contains an unmerged shared trainer implementation, but the approved trainer handoff, frozen dataset release/split, checkpoint identity, canonical class map, preprocessing/box-restoration settings and tested working detector are still required. A/B/C must agree the shared interface and final alpha/threshold/NMS ownership. C real mode validates checkpoint/config provenance and fails closed when artifacts are missing; actual model acceptance has not happened. B remains responsible for evaluation semantics; UI/CLI/runner agreement is covered on synthetic inputs.
 
 Before merging, another teammate should review `Jerry-C`, read the CI outcome, and run the commands above. Do not merge A's unreviewed interface branch merely to make this demo work. The existing 14 November milestone can use this synthetic demo, clearly labelled; it is not completion of the real-model requirement.
 

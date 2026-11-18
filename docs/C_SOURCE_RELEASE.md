@@ -96,5 +96,7 @@ and settings, and final `Project_Code_Group_N.zip` plus individual-report ZIP.
 `01_three_person_work_plan.pdf` / `05_required_api_list.pdf` are team proposals,
 not extra school mandates. The C archive is deliberately named differently: it
 does not contain A's data/checkpoint or individually authored reports. Do not upload
-it as the complete submission. A/B review, actual model acceptance, final complete
-test evaluation and a teammate's clean-machine rehearsal are still required.
+it as the complete submission. The group lead has completed a fresh Mac checkout/venv and launcher smoke on
+`273d1007`, but that only validates the synthetic app, not trained-model use.
+Final A/B real-model handoff and acceptance, held-out evaluation, complete group
+submission and the lead's final PR documentation/checks gate are still required.
