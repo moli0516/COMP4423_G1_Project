@@ -12,21 +12,36 @@ import re
 import subprocess
 import sys
 import zipfile
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {
     "README.md", "pyproject.toml", "requirements.txt", "requirements-windows-py312.lock.txt",
-    "Start Jerry-C.cmd", "STATUS_BOARD.md", ".gitignore", "LICENSE",
+    "Start Jerry-C.cmd", "Start Jerry-C.sh", "STATUS_BOARD.md", ".gitignore", "LICENSE",
 }
 SOURCE_DIRS = {"src", "app", "scripts", "tests", "docs"}
 SOURCE_SUFFIXES = {".py", ".md", ".json", ".jsonl", ".yaml", ".yml", ".txt", ".toml"}
 REQUIRED = {
     "pyproject.toml", "requirements.txt", "configs/fake_app.json", "app/streamlit_app.py",
     "scripts/check_c_setup.py", "scripts/run_c_demo.py", "scripts/package_c_release.py",
-    "src/deskcheck/application/comparison_service.py",
+    "src/deskcheck/application/comparison_service.py", "Start Jerry-C.sh",
 }
 MANIFEST = "RELEASE_MANIFEST.json"
+
+# Keep Windows reserved-name protection on macOS/Linux and Python 3.11+.
+# PureWindowsPath.is_reserved() was deprecated in Python 3.13;
+# os.path.isreserved() is Windows-only.
+_WINDOWS_DEVICES = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+_WINDOWS_DEVICES.update(
+    f"{device}{suffix}"
+    for device in ("COM", "LPT")
+    for suffix in "123456789\u00b9\u00b2\u00b3"
+)
+
+
+def _reserved_windows_component(part: str) -> bool:
+    """Check DOS device basenames (including e.g. CON.txt) on every host OS."""
+    return part.split(".", 1)[0].rstrip(" ").upper() in _WINDOWS_DEVICES
 
 
 def allowed(name: str) -> bool:
@@ -37,7 +52,7 @@ def allowed(name: str) -> bool:
         not path.parts or path.is_absolute() or ".." in path.parts or "\\" in name or ":" in name
         or path.as_posix() != name
         or any(
-            part.endswith((" ", ".")) or PureWindowsPath(part).is_reserved()
+            part.endswith((" ", ".")) or _reserved_windows_component(part)
             or any(ord(char) < 32 or char in '<>"|?*' for char in part)
             for part in path.parts
         )
@@ -101,7 +116,7 @@ def make_archive(commit: str, payloads: dict[str, bytes]) -> bytes:
         for name, data in sorted(entries.items()):
             info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             info.create_system = 3
-            info.external_attr = 0o100644 << 16
+            info.external_attr = (0o100755 if name == "Start Jerry-C.sh" else 0o100644) << 16
             info.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(info, data)
     return output.getvalue()

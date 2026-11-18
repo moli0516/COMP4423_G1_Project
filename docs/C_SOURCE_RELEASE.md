@@ -5,6 +5,8 @@ This is not the final group submission or real-model acceptance. No dependency
 installation, model load, training, download or service termination is performed
 by the new checker/packager.
 
+For macOS/Linux, see `docs/C_RELEASE_MAC_REVIEW_20261118.md` and run `bash "Start Jerry-C.sh"` after creating a fresh `.venv`. This launcher uses the same synthetic UI and performs read-only setup checks before starting the server. The shell script is part of the verified C-source ZIP; real-model acceptance still requires A's checkpoint and B's approved settings.
+
 ## Install a fresh copy
 
 Use a new directory for a checkout or verified archive. Preserve an existing
