@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import hypot
+from pathlib import Path
 
 from deskcheck.data.dataset_catalog import AnnotatedPair, SplitManifest
 from deskcheck.domain.bounding_box import BoundingBox
@@ -253,13 +254,19 @@ def _check_group_integrity(
                     )
                 image_to_split[image_id] = split_name
                 # Different image_ids can point at the same source file.
-                # That's a silent leak: reject any shared source path across splits.
-                if image_path in path_to_split and path_to_split[image_path] != split_name:
+                # Normalize via Path.resolve() so equivalent spellings
+                # ('./x', 'x', 'a/../x', symlinks) map to the same key.
+                try:
+                    canonical_path = str(Path(image_path).resolve())
+                except (OSError, ValueError):
+                    canonical_path = image_path
+                if (canonical_path in path_to_split
+                        and path_to_split[canonical_path] != split_name):
                     errors.append(
-                        f"image source path {image_path!r} shared across splits "
-                        f"({path_to_split[image_path]!r} and {split_name!r})"
+                        f"image source path {canonical_path!r} shared across splits "
+                        f"({path_to_split[canonical_path]!r} and {split_name!r})"
                     )
-                path_to_split[image_path] = split_name
+                path_to_split[canonical_path] = split_name
 
 
 def _coverage(

@@ -219,18 +219,41 @@ def split(
     assignment = _assign_coverage_targets(buckets)
 
     # Coverage-preserving allocation:
-    # 1. Compute which required classes are not yet represented in the pool
-    #    of buckets that will be assigned to train.
-    # 2. Force any bucket that fills a train gap into train first.
-    # 3. Then assign the remaining buckets by ratio.
-    # 4. Verify train ends with all required classes.
+    # Step 1: compute missing classes against ACTUALLY assigned train buckets.
+    # (Previously computed against unassigned pool — that was the bug: the
+    #  force-to-train branch could never fire when the pool covered classes,
+    #  and couldn't help when the pool was missing classes.)
+    train_reserved_classes: set[int] = set()
+    for b in buckets:
+        if assignment.get(b.group_id) == "train":
+            train_reserved_classes |= b.class_ids
+    missing_train = set(REQUIRED_CLASS_IDS) - train_reserved_classes
 
+    # Step 2: RESERVE specific unassigned buckets for train to fill gaps.
+    # Picks smallest buckets first to minimize train bloat.
     unassigned = [b for b in buckets if b.group_id not in assignment]
-    train_candidate_classes: set[int] = set()
-    for b in unassigned:
-        train_candidate_classes |= b.class_ids
-    missing_train = set(REQUIRED_CLASS_IDS) - train_candidate_classes
+    while missing_train:
+        candidates = [
+            b for b in unassigned
+            if b.class_ids & missing_train
+        ]
+        if not candidates:
+            raise ValueError(
+                f"cannot reserve train coverage: no unassigned bucket carries "
+                f"the missing classes {sorted(missing_train)}. Collect more "
+                f"data so every class appears in more groups."
+            )
+        pick = min(
+            candidates,
+            key=lambda b: (len(b.pair_ids), -len(b.class_ids & missing_train)),
+        )
+        assignment[pick.group_id] = "train"
+        train_reserved_classes |= pick.class_ids
+        missing_train -= pick.class_ids
+        unassigned.remove(pick)
 
+    # Step 3: ratio-assign remaining unassigned buckets.
+    # Train's coverage is locked at this point — nothing can steal it.
     target_counts = {
         name: max(round(target_ratios[name] * total_pairs), 1)
         for name in target_ratios
@@ -241,22 +264,10 @@ def split(
         if target is not None:
             current[target] += len(bucket.pair_ids)
 
-    # Sort: gap-filling buckets first, then by pair count (smallest first, so
-    # they're easy to slot without breaking ratio balance).
     rng = random.Random(seed)
     rng.shuffle(unassigned)
-    unassigned.sort(
-        key=lambda b: (0 if (b.class_ids & missing_train) else 1, len(b.pair_ids))
-    )
 
     for bucket in unassigned:
-        if bucket.class_ids & missing_train:
-            # Force into train to preserve coverage.
-            assignment[bucket.group_id] = "train"
-            current["train"] += len(bucket.pair_ids)
-            missing_train -= bucket.class_ids
-            continue
-        # Otherwise assign by ratio.
         best_split = min(
             target_ratios,
             key=lambda name: (
