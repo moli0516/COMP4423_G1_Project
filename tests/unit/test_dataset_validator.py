@@ -368,3 +368,53 @@ def test_audit_rejects_shared_source_path_across_splits(tmp_path: Path) -> None:
         "image source path" in e and "shared across splits" in e
         for e in report.errors
     ), f"expected path collision error, got: {report.errors}"
+
+
+def test_audit_rejects_path_collision_via_normalization(tmp_path: Path) -> None:
+    """Different string spellings of the same physical file must be caught
+    by Path.resolve() normalization across splits. This test FAILS without
+    normalization (both 'file.jpg' and './file.jpg' pass as distinct keys)."""
+    shared_file = tmp_path / "photo.jpg"
+    shared_file.write_bytes(b"fake image bytes")
+
+    p_train = _make_valid_pair("p_tr", "g_tr")
+    p_test = _make_valid_pair("p_te", "g_te")
+    # Different image_ids AND different path strings, but same resolved file.
+    p_train["before_image_id"] = "train_img"
+    p_test["before_image_id"] = "test_img"
+    p_train["before_image_path"] = str(tmp_path / "photo.jpg")
+    p_test["before_image_path"] = str(tmp_path / "." / "photo.jpg")
+
+    pairs, manifest = _write(tmp_path, [p_train, p_test],
+                              {"train": ["p_tr"], "val": [], "test": ["p_te"]})
+    report = audit(pairs, manifest)
+    assert not report.ok, (
+        f"expected path collision to be detected; got no errors. "
+        f"pairs used: {p_train['before_image_path']!r} vs "
+        f"{p_test['before_image_path']!r}"
+    )
+    assert any(
+        "image source path" in e and "shared across splits" in e
+        for e in report.errors
+    ), f"expected source-path collision error; got: {report.errors}"
+
+
+def test_audit_rejects_path_collision_with_dotdot(tmp_path: Path) -> None:
+    """'..' traversal spelling must also normalize to the same canonical path."""
+    subdir = tmp_path / "a"
+    subdir.mkdir()
+    shared_file = tmp_path / "photo.jpg"
+    shared_file.write_bytes(b"fake image bytes")
+
+    p_train = _make_valid_pair("p_tr", "g_tr")
+    p_test = _make_valid_pair("p_te", "g_te")
+    p_train["before_image_id"] = "train_img"
+    p_test["before_image_id"] = "test_img"
+    p_train["before_image_path"] = str(tmp_path / "photo.jpg")
+    p_test["before_image_path"] = str(subdir / ".." / "photo.jpg")  # via ..
+
+    pairs, manifest = _write(tmp_path, [p_train, p_test],
+                              {"train": ["p_tr"], "val": [], "test": ["p_te"]})
+    report = audit(pairs, manifest)
+    assert not report.ok
+    assert any("image source path" in e for e in report.errors)
