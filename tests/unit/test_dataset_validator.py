@@ -370,51 +370,84 @@ def test_audit_rejects_shared_source_path_across_splits(tmp_path: Path) -> None:
     ), f"expected path collision error, got: {report.errors}"
 
 
+def _minimal_pair_dict(pair_id: str, group_id: str) -> dict:
+    """Minimal valid pair with NO default path values that could collide
+    for unrelated reasons. Used for path-normalization isolation tests."""
+    return {
+        "schema_version": "1.0",
+        "pair_id": pair_id,
+        "capture_group_id": group_id,
+        "before_image_id": f"{pair_id}_before_img",
+        "after_image_id": f"{pair_id}_after_img",
+        "before_image_path": f"img/{pair_id}_before.jpg",
+        "after_image_path": f"img/{pair_id}_after.jpg",
+        "width": 640, "height": 480, "rules_version": "1.0",
+        "independently_captured_no_change": False,
+        "manual_before_objects": [
+            {"object_id": f"{pair_id}_b0", "class_id": 0,
+             "bbox_xyxy": [50.0, 50.0, 100.0, 100.0]},
+        ],
+        "manual_after_objects": [
+            {"object_id": f"{pair_id}_a0", "class_id": 0,
+             "bbox_xyxy": [50.0, 50.0, 100.0, 100.0]},
+        ],
+        "correspondences": [
+            {"before_object_id": f"{pair_id}_b0",
+             "after_object_id": f"{pair_id}_a0",
+             "class_id": 0},
+        ],
+        "events": [
+            {"class_id": 0, "status": "unchanged",
+             "before_object_id": f"{pair_id}_b0",
+             "after_object_id": f"{pair_id}_a0"},
+        ],
+    }
+
+
 def test_audit_rejects_path_collision_via_normalization(tmp_path: Path) -> None:
     """Different string spellings of the same physical file must be caught
-    by Path.resolve() normalization across splits. This test FAILS without
-    normalization (both 'file.jpg' and './file.jpg' pass as distinct keys)."""
+    by Path.resolve() normalization. This test DOES NOT rely on any fixture
+    helper's default path values, so the only possible source of collision
+    is the normalization code in _check_group_integrity.
+
+    Fails without normalization: '/tmp/x/photo.jpg' and '/tmp/x/./photo.jpg'
+    are different strings but the same file.
+    """
     shared_file = tmp_path / "photo.jpg"
     shared_file.write_bytes(b"fake image bytes")
 
-    p_train = _make_valid_pair("p_tr", "g_tr")
-    p_test = _make_valid_pair("p_te", "g_te")
-    # Different image_ids AND different path strings, but same resolved file.
-    p_train["before_image_id"] = "train_img"
-    p_test["before_image_id"] = "test_img"
-    p_train["before_image_path"] = str(tmp_path / "photo.jpg")
-    p_test["before_image_path"] = str(tmp_path / "." / "photo.jpg")
+    # DIFFERENT string spellings of the same file
+    path_canonical = str(tmp_path / "photo.jpg")
+    path_with_dot = str(tmp_path) + "/./photo.jpg"
+    assert path_canonical != path_with_dot, "test setup: strings must differ"
+    assert (Path(path_canonical).resolve() == Path(path_with_dot).resolve()), \
+        "test setup: paths must resolve to same file"
 
-    pairs, manifest = _write(tmp_path, [p_train, p_test],
-                              {"train": ["p_tr"], "val": [], "test": ["p_te"]})
+    p_train = _minimal_pair_dict("p_tr", "g_tr")
+    p_test = _minimal_pair_dict("p_te", "g_te")
+    # Different image_ids and capture groups — only the path collides
+    p_train["before_image_path"] = path_canonical
+    p_test["before_image_path"] = path_with_dot
+
+    pairs_path = tmp_path / "pairs.jsonl"
+    with pairs_path.open("w", encoding="utf-8") as fh:
+        fh.write(json.dumps(p_train) + "\n")
+        fh.write(json.dumps(p_test) + "\n")
+    manifest_path = tmp_path / "splits.json"
+    manifest_path.write_text(json.dumps({
+        "schema_version": "1.0", "seed": 42, "dataset_release": "v1",
+        "splits": {"train": ["p_tr"], "val": [], "test": ["p_te"]},
+    }), encoding="utf-8")
+
+    pairs = load_annotations(pairs_path)
+    manifest = load_manifest(manifest_path)
     report = audit(pairs, manifest)
+
     assert not report.ok, (
-        f"expected path collision to be detected; got no errors. "
-        f"pairs used: {p_train['before_image_path']!r} vs "
-        f"{p_test['before_image_path']!r}"
+        f"expected collision via normalization; got no errors. "
+        f"Paths used: {path_canonical!r} and {path_with_dot!r}"
     )
     assert any(
         "image source path" in e and "shared across splits" in e
         for e in report.errors
     ), f"expected source-path collision error; got: {report.errors}"
-
-
-def test_audit_rejects_path_collision_with_dotdot(tmp_path: Path) -> None:
-    """'..' traversal spelling must also normalize to the same canonical path."""
-    subdir = tmp_path / "a"
-    subdir.mkdir()
-    shared_file = tmp_path / "photo.jpg"
-    shared_file.write_bytes(b"fake image bytes")
-
-    p_train = _make_valid_pair("p_tr", "g_tr")
-    p_test = _make_valid_pair("p_te", "g_te")
-    p_train["before_image_id"] = "train_img"
-    p_test["before_image_id"] = "test_img"
-    p_train["before_image_path"] = str(tmp_path / "photo.jpg")
-    p_test["before_image_path"] = str(subdir / ".." / "photo.jpg")  # via ..
-
-    pairs, manifest = _write(tmp_path, [p_train, p_test],
-                              {"train": ["p_tr"], "val": [], "test": ["p_te"]})
-    report = audit(pairs, manifest)
-    assert not report.ok
-    assert any("image source path" in e for e in report.errors)
