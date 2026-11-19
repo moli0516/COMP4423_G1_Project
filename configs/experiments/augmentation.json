@@ -1,0 +1,25 @@
+{
+  "experiment_id": "E1",
+  "owner": "B",
+  "hypothesis": "Reduced augmentation improves validation mAP on the limited dataset size.",
+  "baseline_reference": "configs/experiments/baseline.json",
+  "changed_factor": "augmentation",
+  "data": "inherit",
+  "model": "inherit",
+  "preprocessing": "inherit",
+  "augmentation": {
+    "hsv_h": 0.0,
+    "hsv_s": 0.0,
+    "hsv_v": 0.0,
+    "fliplr": 0.0,
+    "mosaic": 0.0,
+    "scale": 0.0
+  },
+  "training": "inherit",
+  "validation": "inherit",
+  "inference": "inherit",
+  "outputs": {
+    "run_dir": "runs/experiments/E1_augmentation"
+  },
+  "notes": "STUB \u2014 B owns. Fill in after inspecting the pilot dataset. Must change only the augmentation block relative to E0."
+}
