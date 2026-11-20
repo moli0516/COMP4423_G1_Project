@@ -116,10 +116,36 @@ def _parse_pair(raw: dict[str, Any], line_no: int) -> AnnotatedPair:
     )
 
 
+def _resolve_pair_paths(
+    pair: AnnotatedPair, base_dir: Path
+) -> AnnotatedPair:
+    """Resolve any relative image paths in the pair against `base_dir`.
+
+    Portable releases write image paths relative to the annotation file.
+    Absolute paths (legacy or local) are left unchanged.
+    """
+    before = Path(pair.before_image_path)
+    after = Path(pair.after_image_path)
+    if before.is_absolute() and after.is_absolute():
+        return pair
+    # Replace path fields while preserving everything else
+    from dataclasses import replace
+    return replace(
+        pair,
+        before_image_path=str(before if before.is_absolute() else (base_dir / before)),
+        after_image_path=str(after if after.is_absolute() else (base_dir / after)),
+    )
+
+
 def load_annotations(path: Path) -> dict[str, AnnotatedPair]:
-    """Read JSONL annotations. Reject duplicate pair_ids and malformed records."""
+    """Read JSONL annotations. Reject duplicate pair_ids and malformed records.
+
+    Image paths in the JSONL may be relative (portable) or absolute (local).
+    Relative paths are resolved against the annotation file's parent directory.
+    """
     if not path.exists():
         raise FileNotFoundError(f"annotations file not found: {path}")
+    base_dir = path.resolve().parent
     pairs: dict[str, AnnotatedPair] = {}
     with path.open("r", encoding="utf-8") as fh:
         for line_no, line in enumerate(fh, start=1):
@@ -131,6 +157,7 @@ def load_annotations(path: Path) -> dict[str, AnnotatedPair]:
             except json.JSONDecodeError as exc:
                 raise ValueError(f"annotations line {line_no}: invalid JSON: {exc}") from exc
             pair = _parse_pair(raw, line_no)
+            pair = _resolve_pair_paths(pair, base_dir)
             if pair.pair_id in pairs:
                 raise ValueError(f"duplicate pair_id {pair.pair_id!r} at line {line_no}")
             pairs[pair.pair_id] = pair

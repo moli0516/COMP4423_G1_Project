@@ -218,3 +218,36 @@ def test_annotations_reject_string_booleans(tmp_path: Path) -> None:
     path = _write_jsonl(tmp_path / "pairs.jsonl", [rec])
     with pytest.raises(ValueError, match="must be an actual boolean"):
         load_annotations(path)
+
+
+def test_load_annotations_resolves_relative_paths(tmp_path: Path) -> None:
+    """Relative image paths resolve against the annotation file's directory."""
+    ann_dir = tmp_path / "annotations"
+    ann_dir.mkdir()
+    # Create a fake image file so the path is verifiable
+    img = ann_dir / "before.jpg"
+    img.write_bytes(b"fake")
+
+    rec = _base_pair_dict("p1")
+    rec["before_image_path"] = "before.jpg"   # relative
+    rec["after_image_path"] = "after.jpg"     # relative (file not created; path only)
+    ann_path = ann_dir / "pairs.jsonl"
+    ann_path.write_text(json.dumps(rec) + "\n", encoding="utf-8")
+
+    pairs = load_annotations(ann_path)
+    pair = pairs["p1"]
+    # Relative paths resolved against ann_dir
+    assert Path(pair.before_image_path).is_absolute()
+    assert Path(pair.before_image_path) == (ann_dir / "before.jpg").resolve()
+
+
+def test_load_annotations_preserves_absolute_paths(tmp_path: Path) -> None:
+    """Absolute paths are left unchanged."""
+    abs_path = str(tmp_path / "some_image.jpg")
+    rec = _base_pair_dict("p1")
+    rec["before_image_path"] = abs_path
+    ann_path = tmp_path / "pairs.jsonl"
+    ann_path.write_text(json.dumps(rec) + "\n", encoding="utf-8")
+
+    pairs = load_annotations(ann_path)
+    assert pairs["p1"].before_image_path == abs_path
