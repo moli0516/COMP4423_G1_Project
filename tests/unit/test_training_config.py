@@ -222,3 +222,34 @@ def test_rejects_test_split_for_checkpoint_selection(tmp_path: Path) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="validation.split must be 'val'"):
         load(path, baseline_path=base)
+
+
+def test_e1_augmentation_loads_with_explicit_baseline(tmp_path: Path) -> None:
+    """E1 config has `inherit` markers and requires baseline_path."""
+    from pathlib import Path as _P
+
+    from deskcheck.training.training_config import load as load_cfg
+    repo_root = _P(__file__).resolve().parents[2]
+    baseline = repo_root / "configs" / "experiments" / "baseline.json"
+    aug = repo_root / "configs" / "experiments" / "augmentation.json"
+    if not aug.exists():
+        import pytest
+        pytest.skip("E1 config not present")
+    cfg = load_cfg(aug, baseline_path=baseline)
+    assert cfg.experiment_id == "E1"
+    assert cfg.owner == "B"
+
+
+def test_e2_resolution_loads_with_explicit_baseline(tmp_path: Path) -> None:
+    from pathlib import Path as _P
+
+    from deskcheck.training.training_config import load as load_cfg
+    repo_root = _P(__file__).resolve().parents[2]
+    baseline = repo_root / "configs" / "experiments" / "baseline.json"
+    res = repo_root / "configs" / "experiments" / "resolution.json"
+    if not res.exists():
+        import pytest
+        pytest.skip("E2 config not present")
+    cfg = load_cfg(res, baseline_path=baseline)
+    assert cfg.experiment_id == "E2"
+    assert cfg.owner == "C"

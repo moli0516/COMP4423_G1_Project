@@ -27,11 +27,31 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    # Detect whether the config references a baseline (E1/E2 use `inherit`)
+    import json as _json
+    _cfg_raw = _json.loads(Path(args.config).read_text(encoding="utf-8"))
+    _baseline_ref = _cfg_raw.get("baseline_reference")
+    _has_inherit = any(
+        isinstance(v, str) and v == "inherit"
+        for block in _cfg_raw.values()
+        if isinstance(block, dict)
+        for v in block.values()
+    ) or any(
+        isinstance(v, str) and v == "inherit"
+        for v in _cfg_raw.values()
+    )
+    _baseline_path = None
+    if _baseline_ref and _baseline_ref.startswith("configs/"):
+        _baseline_path = Path(_baseline_ref)
+    elif _has_inherit:
+        _baseline_path = Path("configs/experiments/baseline.json")
+
     try:
         artifact = train(
             args.config,
             run_dir=args.run_dir,
             dataset_yaml_override=args.dataset,
+            baseline_config_path=_baseline_path,
         )
     except TrainingError as exc:
         print(f"training failed: {exc}", file=sys.stderr)
