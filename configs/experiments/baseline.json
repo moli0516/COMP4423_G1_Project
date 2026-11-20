@@ -42,8 +42,8 @@
     "checkpoint_selection": "best_mAP50_95"
   },
   "inference": {
-    "confidence_threshold": 0.25,
-    "nms_iou_threshold": 0.45
+    "confidence_threshold": 0.2,
+    "nms_iou_threshold": 0.35
   },
   "outputs": {
     "run_dir": "runs/experiments/E0_baseline"
