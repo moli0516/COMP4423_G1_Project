@@ -142,10 +142,10 @@ def _read_actual_epochs_completed(results, save_dir: Path) -> int | None:
 def _read_selected_epoch(save_dir: Path) -> int | None:
     """Determine which epoch produced best.pt.
 
-    YOLOv8 saves best.pt at the epoch with highest fitness (mAP50-95).
-    The epoch number is not directly stored in artifact-accessible metadata,
-    so we read it from the results.csv if a 'fitness' or 'metrics/mAP50-95(B)'
-    column exists, else return None (mark unknown).
+    Requires an explicit 'epoch' column with valid integer values. If the
+    epoch column is missing or any row has a non-integer epoch, returns
+    None (marks unknown). Never falls back to row index — that would
+    fabricate a value the evidence doesn't support.
     """
     csv_path = save_dir / "results.csv"
     if not csv_path.exists():
@@ -155,8 +155,10 @@ def _read_selected_epoch(save_dir: Path) -> int | None:
         if len(lines) < 2:
             return None
         header = [h.strip() for h in lines[0].split(",")]
+        if "epoch" not in header:
+            return None
+        epoch_col = header.index("epoch")
         # Prefer 'fitness' column (ultralytics combined metric)
-        # Fall back to mAP50-95
         target_col = None
         for candidate in ("fitness", "metrics/mAP50-95(B)", "metrics/mAP50-95"):
             if candidate in header:
@@ -164,23 +166,21 @@ def _read_selected_epoch(save_dir: Path) -> int | None:
                 break
         if target_col is None:
             return None
-        best_epoch = None
+        best_epoch: int | None = None
         best_val = float("-inf")
-        for idx, line in enumerate(lines[1:], start=1):
+        for line in lines[1:]:
             parts = line.split(",")
-            if len(parts) <= target_col:
+            if len(parts) <= max(epoch_col, target_col):
                 continue
             try:
                 val = float(parts[target_col])
+                epoch_value = int(parts[epoch_col])
             except ValueError:
-                continue
+                # Any malformed row -> cannot trust the CSV for epoch selection
+                return None
             if val > best_val:
                 best_val = val
-                # ultralytics epoch column is often first; if not, use row index
-                try:
-                    best_epoch = int(parts[0]) if header[0] == "epoch" else idx - 1
-                except (ValueError, IndexError):
-                    best_epoch = idx - 1
+                best_epoch = epoch_value
         return best_epoch
     except (OSError, ValueError, IndexError):
         return None

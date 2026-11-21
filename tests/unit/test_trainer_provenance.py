@@ -85,3 +85,42 @@ def test_read_selected_epoch_missing_csv_returns_none(tmp_path: Path) -> None:
     save_dir = tmp_path / "empty"
     save_dir.mkdir()
     assert _read_selected_epoch(save_dir) is None
+
+
+def test_read_selected_epoch_missing_epoch_column_returns_none(tmp_path: Path) -> None:
+    """No 'epoch' column -> unknown. Must NOT fall back to row index."""
+    save_dir = tmp_path / "run"
+    save_dir.mkdir()
+    csv_path = save_dir / "results.csv"
+    with csv_path.open("w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["step", "fitness"])  # no 'epoch' column
+        writer.writerow([0, 0.3])
+        writer.writerow([1, 0.5])
+    assert _read_selected_epoch(save_dir) is None
+
+
+def test_read_selected_epoch_non_integer_epoch_returns_none(tmp_path: Path) -> None:
+    """Non-integer epoch values -> unknown. Must NOT fall back to row index."""
+    save_dir = tmp_path / "run"
+    save_dir.mkdir()
+    csv_path = save_dir / "results.csv"
+    with csv_path.open("w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "fitness"])
+        writer.writerow(["abc", 0.3])   # non-integer epoch
+        writer.writerow([1, 0.5])
+    assert _read_selected_epoch(save_dir) is None
+
+
+def test_read_selected_epoch_valid_returns_actual_epoch(tmp_path: Path) -> None:
+    save_dir = tmp_path / "run"
+    save_dir.mkdir()
+    csv_path = save_dir / "results.csv"
+    with csv_path.open("w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["epoch", "fitness"])
+        writer.writerow([5, 0.5])
+        writer.writerow([6, 0.9])   # best
+        writer.writerow([7, 0.7])
+    assert _read_selected_epoch(save_dir) == 6
