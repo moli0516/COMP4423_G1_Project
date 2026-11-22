@@ -219,4 +219,6 @@ if bundle is not None and not photo_only:
         ("Download annotated after", "annotated_after.png", "image/png"),
     ]
     for column, (label, name, mime) in zip(st.columns(4), names):
-        column.download_button(label, bundle["downloads"][name], file_name=name, mime=mime)
+        column.download_button(
+            label, bundle["downloads"][name], file_name=name, mime=mime, on_click="ignore"
+        )

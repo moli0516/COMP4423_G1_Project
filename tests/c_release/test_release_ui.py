@@ -15,6 +15,14 @@ class ReleaseUiTests(unittest.TestCase):
         self.assertEqual(len(app.exception), 0)
         return app
 
+    def test_downloading_a_prepared_file_keeps_other_exports_available(self):
+        app = self.app()
+        app.button[0].click().run()
+        self.assertEqual(len(app.download_button), 4)
+        for button in app.download_button:
+            with self.subTest(button=button.label):
+                self.assertTrue(button.proto.ignore_rerun)
+
     def test_table_summary_filter_and_full_download_payload_survive_rerun(self):
         app = self.app()
         app.button[0].click().run()
