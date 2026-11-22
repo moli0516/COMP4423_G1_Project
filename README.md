@@ -6,6 +6,8 @@ DeskCheck compares two photographs of the same desk and reports which target obj
 
 Place A's released `best.pt` in `artifacts/`. The UI, single-pair CLI and batch runner use A's `YoloDetector` through `ComparisonService.for_real`. The E0 application settings and checkpoint digest are in `configs/app.json`. Follow the [real-model instructions](docs/REAL_MODEL_INTEGRATION.md) for setup, commands and real-photo verification, or the [batch instructions](docs/REAL_BATCH_EVALUATION.md) for evaluation manifests.
 
+The [Part C report draft](docs/C_INDIVIDUAL_REPORT_DRAFT.md) brings together the verified application results, the resolution experiment and its limitations.
+
 ## Setup
 Python 3.11+. From repository root:
 ```bash
@@ -77,4 +79,4 @@ The class order is bottle, cup, keyboard, mouse, book, scissors. B reports movem
 
 ## Git
 
-PR #9 merged the original C application. The follow-up C integration uses A's detector from PR #8 at `45f0e0a`. Keep the weights, photo releases and per-run outputs outside Git.
+PR #9 merged the original C application. PR #10 integrates A's shared detector and trainer through commit `44e2322`. Keep the weights, photo releases and per-run outputs outside Git.

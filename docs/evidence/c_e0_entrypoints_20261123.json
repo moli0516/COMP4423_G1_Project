@@ -1,0 +1,197 @@
+{
+  "application_commit": "461db74a13319ea4156e889db278adb50f54d45f",
+  "split": "formal_v1_validation",
+  "ui": {
+    "browser": "Google Chrome",
+    "version": "157.0.8103.79",
+    "mode": "Run local YOLO checkpoint",
+    "interaction": "Original before/after files uploaded; four native button downloads saved and compared byte-for-byte to CLI for the same pair."
+  },
+  "platform": "Windows",
+  "runtime": {
+    "ultralytics": "8.4.215",
+    "torch": "2.11.0+cpu",
+    "torchvision": "0.26.0+cpu",
+    "streamlit": "1.67.0",
+    "Pillow": "12.3.0",
+    "numpy": "2.5.5"
+  },
+  "checkpoint_sha256": "82ed9f8569b705e7074f44d81006515da3e02dde3284a211c4a73a5f9d96c438",
+  "config_sha256": "b6eec16b8d5289665035ce40d4bf961a8145b81fd30c1037b1fb4fec9d69798f",
+  "manifest_sha256": "962500ea3e5f1d5bfee93dd40d9d33fba5f14df56b5e2ec8c06d30917c328b2f",
+  "pairs": {
+    "G01P1": {
+      "event_records": 6,
+      "retained_detections": 11,
+      "cli_records_equal_batch": true,
+      "retained_boxes_and_confidences_equal_prior_windows_e0": true,
+      "original_image_pixel_size": [
+        4096,
+        3072
+      ],
+      "outputs": {
+        "result.json": {
+          "button": "Download JSON",
+          "cli_browser_bytes_equal": true,
+          "bytes": 6558,
+          "sha256": "605d259bf08cc09d6322f2f05bd9ad1beb34609019fb9376cb643933a5323675"
+        },
+        "result.csv": {
+          "button": "Download CSV",
+          "cli_browser_bytes_equal": true,
+          "bytes": 1421,
+          "sha256": "c95821aa367b9b7648415bc600849d09326beebcd0d38b337ba5b73fe32a5c57"
+        },
+        "annotated_before.png": {
+          "button": "Download annotated before",
+          "cli_browser_bytes_equal": true,
+          "bytes": 10174439,
+          "sha256": "207e3249eba0868350f722de88b3a265c1257ea23c7a817445f8018d837b7501"
+        },
+        "annotated_after.png": {
+          "button": "Download annotated after",
+          "cli_browser_bytes_equal": true,
+          "bytes": 6943557,
+          "sha256": "2a17570add1ef1367983f60f1ca04da1bf11fece83d7e065f708ea54c6be3b4b"
+        }
+      }
+    },
+    "G01P2": {
+      "event_records": 6,
+      "retained_detections": 11,
+      "cli_records_equal_batch": true,
+      "retained_boxes_and_confidences_equal_prior_windows_e0": true,
+      "original_image_pixel_size": [
+        4096,
+        3072
+      ],
+      "outputs": {
+        "result.json": {
+          "button": "Download JSON",
+          "cli_browser_bytes_equal": true,
+          "bytes": 6636,
+          "sha256": "80b687653738a3f32467ac9113212f2ddfc4ad32cccb0fda6f711a9887a701e3"
+        },
+        "result.csv": {
+          "button": "Download CSV",
+          "cli_browser_bytes_equal": true,
+          "bytes": 1460,
+          "sha256": "504bca86a7c759c19b93fe4b7fff0413b1b873cec5d851da15ada634ef5db428"
+        },
+        "annotated_before.png": {
+          "button": "Download annotated before",
+          "cli_browser_bytes_equal": true,
+          "bytes": 10055899,
+          "sha256": "eb3b343c48aac41e79259df06be4735c364233f1d0f19f7a3f97a2f7ff7278c9"
+        },
+        "annotated_after.png": {
+          "button": "Download annotated after",
+          "cli_browser_bytes_equal": true,
+          "bytes": 9837237,
+          "sha256": "2da7b99822af713bb6d45c8d6b30235f1ea183e12b27dbdb2cce01ccb03c6eb9"
+        }
+      }
+    },
+    "G03P1": {
+      "event_records": 6,
+      "retained_detections": 11,
+      "cli_records_equal_batch": true,
+      "retained_boxes_and_confidences_equal_prior_windows_e0": true,
+      "original_image_pixel_size": [
+        4096,
+        3072
+      ],
+      "outputs": {
+        "result.json": {
+          "button": "Download JSON",
+          "cli_browser_bytes_equal": true,
+          "bytes": 6599,
+          "sha256": "f230a4fac5c0d9f7b16da326f37ddd1d834756ec9d807ffb920c03c5a881fe25"
+        },
+        "result.csv": {
+          "button": "Download CSV",
+          "cli_browser_bytes_equal": true,
+          "bytes": 1439,
+          "sha256": "06c52944719efc77fa78cc6b2764310c3450727c05c5e8d5b8e60feb26de82a3"
+        },
+        "annotated_before.png": {
+          "button": "Download annotated before",
+          "cli_browser_bytes_equal": true,
+          "bytes": 10123601,
+          "sha256": "9223463aa59181c4e7b03beba4196826e360c41e8117d3696e9d2474cf5dd6c5"
+        },
+        "annotated_after.png": {
+          "button": "Download annotated after",
+          "cli_browser_bytes_equal": true,
+          "bytes": 9955725,
+          "sha256": "b00c50f978b64c1bb667cff9d2f446471a62a8c296d3068b98d0f9d1b2f733de"
+        }
+      }
+    },
+    "G03P2": {
+      "event_records": 5,
+      "retained_detections": 10,
+      "cli_records_equal_batch": true,
+      "retained_boxes_and_confidences_equal_prior_windows_e0": true,
+      "original_image_pixel_size": [
+        4096,
+        3072
+      ],
+      "outputs": {
+        "result.json": {
+          "button": "Download JSON",
+          "cli_browser_bytes_equal": true,
+          "bytes": 5939,
+          "sha256": "f64d6392ae0d224cf341e8cf820d34db4ed296cb8e88b1f333338611bc73ef36"
+        },
+        "result.csv": {
+          "button": "Download CSV",
+          "cli_browser_bytes_equal": true,
+          "bytes": 1310,
+          "sha256": "ed27bf3aaf05c39c82467387721c6122bd050b857e9d4e57b4a3dde86032df52"
+        },
+        "annotated_before.png": {
+          "button": "Download annotated before",
+          "cli_browser_bytes_equal": true,
+          "bytes": 10070299,
+          "sha256": "398c3822942121e702f5726d23ac6afdc9349c595379ec3f0e033977654ccfe7"
+        },
+        "annotated_after.png": {
+          "button": "Download annotated after",
+          "cli_browser_bytes_equal": true,
+          "bytes": 10081826,
+          "sha256": "b1944ca4299aa86a446c357e3791f8826eb81aaa913c5c0a74726dda1f88ed43"
+        }
+      }
+    }
+  },
+  "totals": {
+    "pairs": 4,
+    "event_records": 23,
+    "retained_detections": 43,
+    "byte_identical_browser_cli_files": 16
+  },
+  "event_metrics": {
+    "localized_true_positives": 22,
+    "macro_f1": 0.9102564102564102,
+    "change_only_macro_f1": 0.8888888888888888,
+    "eligible_no_change_pairs": 1,
+    "false_alarm_pairs": 0
+  },
+  "tests": {
+    "native_passed": 568,
+    "native_posix_only_skipped": 10,
+    "ruff": "passed"
+  },
+  "configuration_preflight": {
+    "commit": "7768c4ed7059b66a0d9513104d497c3cfe02e267",
+    "unchanged_runs_dir": true,
+    "training_performed": false,
+    "cases": [
+      "e0_control_640_b8",
+      "e0_reference",
+      "e2_960_b16",
+      "e2_960_b8"
+    ]
+  }
+}

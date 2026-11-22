@@ -1,6 +1,6 @@
 # Run A's E0 detector in DeskCheck
 
-The 22 November C integration uses A's detector and shared image frame from commit `45f0e0a`. C's loader applies EXIF orientation and decodes RGB once. The three real entry points construct `ComparisonService.for_real(settings)` and pass the shared frame straight to `YoloDetector.predict`. B's filter, matcher, change rules and evaluator then consume the detections.
+C integrated the E0 handoff at `45f0e0a` and the subsequent A changes through `44e2322` on PR #10. C's loader applies EXIF orientation and decodes RGB once. The three real entry points construct `ComparisonService.for_real(settings)` and pass the shared frame straight to `YoloDetector.predict`. B's filter, matcher, change rules and evaluator then consume the detections.
 
 ## Set up the released model
 
@@ -37,7 +37,7 @@ DESKCHECK_REAL_CONFIG="$PWD/configs/app.json" python -m streamlit run app/stream
 
 A's standalone `resolved_config.json`, tuning invocation and top-level `artifact.json` agree on 0.20/0.35. The nested training snapshot in `artifact.json` lists the earlier 0.25/0.45 settings. The movement threshold comes from [B's freeze recorded in section 3c](https://github.com/moli0516/COMP4423_G1_Project/blob/45f0e0a/docs/a_contracts_freeze.md). `RealSettings` checks the checkpoint bytes and binds effective parameters to the exact configuration bytes on every construction.
 
-A owns preprocessing, model loading, backend NMS and the output class/box mapping. The C integration branch proposes an A-side correction at the NumPy input boundary. Ultralytics takes NumPy images in BGR order. Converting the shared RGB snapshot there preserves the UI pixels and matches the backend's PIL input. The adapter checks source geometry and requires one mapping for each target class. [Ultralytics inference sources](https://docs.ultralytics.com/modes/predict/#inference-sources)
+A owns preprocessing, model loading, backend NMS and the output class/box mapping. A adopted the RGB-to-BGR correction at the NumPy input boundary in `8c6bfc1`. Ultralytics takes NumPy images in BGR order. Converting the shared RGB snapshot there preserves the UI pixels and matches the backend's PIL input. The adapter checks source geometry and requires one mapping for each target class. [Ultralytics inference sources](https://docs.ultralytics.com/modes/predict/#inference-sources)
 
 ## Real checkpoint checks
 
@@ -53,4 +53,12 @@ On 22 November 2026, C ran the released E0 checkpoint on all four validation pai
 
 B's evaluator matched 22 of 23 annotated events at IoU 0.50. On `G01P1`, the detector missed the scissors in the after photo and the application consequently reported a removal. The eligible independently captured control, `G03P2`, produced zero changes. The held-out test split was left untouched. [Pair results, scores and release digests](REAL_BATCH_EVALUATION.md#formal-v1-results)
 
-A's detector handoff is an ancestor of the C branch. The color-order correction is on C's integration PR for A to review. C has also exercised all three candidate E2 configurations through A's training entry point. C uses a fresh 640 control and a 960 candidate on each comparison machine, with the same initialization and micro-batch within each pair. [Resolution experiment results](C_E2_RESOLUTION_PROTOCOL.md)
+A confirmed the color conversion, training output directory fix and starting-weight identity. C ran its paired 640 and 960 experiments through the shared trainer using the same initialization and batch size within each pair. [A’s confirmation](https://github.com/moli0516/COMP4423_G1_Project/pull/8#issuecomment-7075147335) [Resolution experiment results](C_E2_RESOLUTION_PROTOCOL.md)
+
+## Acceptance after integrating A’s latest detector and trainer revisions
+
+The C integration includes A’s commit `44e2322`. C retained the six-class checkpoint check and original-image geometry validation, and integrated A’s distinction between a valid empty detection set and a malformed result. The E2 preflight also isolates the backend settings used by its dry run. A real preflight with the released E0 metadata left the saved Ultralytics settings byte-identical.
+
+At application commit `461db74`, Chrome 157 on Windows uploaded the original photographs for each of the four validation pairs. Each of the 16 browser downloads had the expected filename and the same bytes as its corresponding fresh CLI result. All 23 event records agreed with B’s batch runner. The 43 retained detections matched the prior Windows E0 reference in confidence and original-pixel coordinates. B’s evaluator again matched 22 of 23 ground-truth events.
+
+Earlier, consecutive clicks could cancel a full-resolution PNG when a prepared download triggered an app rerun. The four buttons now serve the prepared bytes without rerunning Streamlit. The final Windows vision suite passed 568 tests with 10 POSIX-only skips. The POSIX dev suite passed 577 tests with the optional vision integration skipped. Both Ruff checks passed. [Per-pair file digests, runtime and evaluation results](evidence/c_e0_entrypoints_20261123.json)
