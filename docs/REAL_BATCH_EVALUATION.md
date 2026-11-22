@@ -77,4 +77,23 @@ python scripts/evaluate_real_pairs.py --config configs/app.json --manifest runs/
 ```
 The helper uses A's catalog and event conversion, selects the validation IDs, preserves missing sides and carries the independently captured control flags. B requires at least one eligible control with annotated unchanged objects to calculate the no-change rate.
 
-The validation helper has been exercised on native-schema fixtures. A full formal release run still requires accessible copies of the validation photographs and their manifests.
+## Formal v1 results
+
+On 22 November 2026 the two commands above ran against the frozen four-pair validation split and A's E0 checkpoint. The eight original images were 4096 × 3072 pixels. Their 44 annotated boxes yielded 23 ground-truth events.
+
+| Validation pair | Annotated changes | E0 result |
+| --- | --- | --- |
+| G01P1 | None | Reported scissors removed. The after-frame detector output had no scissors. |
+| G01P2 | Scissors removed | Correct on all six events. |
+| G03P1 | Bottle moved, cup added | Correct on all six events. |
+| G03P2 | None, independently captured control | Correct on all five events. |
+
+At event IoU 0.50, the evaluator matched 22 of 23 ground-truth events. Added and moved each had one true positive. Removed had one true positive and one false positive. Unchanged had 19 true positives and one false negative. Four-status macro-F1 was **0.9103** and change-only macro-F1 was **0.8889**. The release designates only G03P2 as an independent control, giving **0 alarms in 1 eligible pair**.
+
+| Input | Measured SHA-256 |
+| --- | --- |
+| Formal v1 ZIP (356,090,127 bytes) | `0a49f3bc1308f1d5ac292cfb6274c17ef89abcc616dc21c1dd1eea0eeafa63f9` |
+| Native annotations `pairs.jsonl` | `066adf1eb1921c14bc7729fe577ef5da489102029d38a512cde33eae9c289588` |
+| Native split `splits.json` | `6ff54612563c869dae24482c1cc219432c36c011bd3aef8237e7fe8fda982ebb` |
+
+The model, app configuration, and entry-point parity checks are recorded in [the E0 integration handoff](REAL_MODEL_INTEGRATION.md).

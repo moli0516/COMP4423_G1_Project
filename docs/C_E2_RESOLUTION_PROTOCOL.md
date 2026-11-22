@@ -1,51 +1,31 @@
-# Member C — E2 resolution experiment: gated protocol (not run)
+# Part C resolution experiment protocol
 
-**Evidence:** A's unmerged PR #8, `configs/experiments/resolution.json`
-at commit `29f65797c19379a678dc6ce1b5fc39d1b010ffd3`
-declares `experiment_id=E2`, `owner=C` and a proposed
-input-resolution comparison against A's E0 baseline.
-**Status: NOT EXECUTED.** The file explicitly says STUB, so no
-measurements or selected checkpoint are claimed.
-
-**Historical 12 November finding (superseded):** The older A commit exposed
-only `--config` and exited with `Not implemented`; no runnable shared trainer
-existed at that time. **18 November update:** A PR #8 at `1a4974b` now has a
-shared trainer CLI with `--config`, `--run-dir` and `--dataset` options, but is
-unmerged. The trainer's standalone `load_config(config_path)` cannot yet resolve
-E2's raw `inherit` entries. C's 14/14 config preflight validated a separate
-fully resolved candidate without running training. A must approve the config
-resolution, frozen E0 data and batch-size controls first. See
-`docs/C_E2_PREFLIGHT_20261118.md` and `docs/C_E2_DECISION_BRIEF_20261118.md`.
-Do not create a competing trainer or claim E2 performance.
+A released the E0 checkpoint, formal v1 dataset and shared trainer at `45f0e0a`. C reproduced E0 application results on the full validation split and exercised the three candidate training configurations through A's trainer. E2 training and GPU measurements are pending. [Configuration receipts and comparison choices](C_E2_DECISION_BRIEF_20261118.md)
 
 ## Question and comparison
 
 Does moving from E0 **640 × 640** to E2 **960 × 960** model input
 resolution improve small-object detection, and at what cost in inference
-time and training memory? These numbers are **A's provisional settings**,
-not a frozen academic choice.
+time and training memory? E0 used 640. The proposed E2 run uses 960.
 
-| Component | E0 proposed | E2 proposed | Control rule |
+| Component | E0 reference | E2 proposal | Control rule |
 |---|---|---|---|
 | Input size | 640 | 960 | Treatment variable |
 | Dataset release/splits | A's v1 | Identical hash & groups | No cross-split leakage |
 | Model/init | A's YOLOv8n + source weights | Same verified initialization | A pins model/version |
 | Data order / train seed | A's 42 | Same seed (or paired independent seeds) | Compare same conditions |
 | Training optimizer/lr/epochs/augmentations | A's E0 config | Same effective values | No E2-specific tuning from test |
-| Batch size | 16 | 8 | **Confound:** A's stub changes this too; agree equivalent effective batch via accumulation or explicitly qualify the comparison |
+| Batch size | 16 in released E0 | 16 if feasible | If 960 requires batch 8, compare it with a 640/batch-8 control on the same hardware |
 | Validation | `val` | `val` | Select/checkpoint only from validation |
 | Test | Held out | Held out | Final evaluation only after full freeze |
 | Reported outputs | Detector mAP, per-class results | Same | A owns scorer and threshold protocol |
 | Cost metrics | Latency, memory, training wall-time | Same | Same hardware, warmup and runs |
 
-## Protocol after A makes a runnable training baseline
+## Training and evaluation
 
-1. A supplies real frozen dataset release ID, SHA-256 for split manifest,
-   dataset YAML, model/init, dependency version and working trainer.
-   C does **not** implement a competing trainer.
-2. A/B/C agree any necessary E2 batch-size compensation and how to compare
-   effective gradient batch. Predeclare any unavoidable difference; do not
-   present such a result as an isolated resolution effect.
+1. Use A's released dataset and trainer. Record the physical GPU and SHA-256 of the original `yolov8n.pt` initialization. The trained E0 output is kept for inference.
+2. Agree on the GPU allocation and a matched batch size. If batch size changes along with resolution, report both changes.
+
 3. Run E0/E2 using the **same trainer** on the **same data and hardware**,
    each writing a fresh run directory with immutable settings/usage receipts.
    Record seeds, checkpoint hash, epoch count, data/split hash, actual settings,
@@ -61,15 +41,7 @@ not a frozen academic choice.
    `FakeColorDetector` output, stub metric or missing checkpoint is evidence
    of the E2 hypothesis.
 
-## Known blockers, not discretionary work by C
-
-- A PR #8 is still open; no approved merged trainer/checkpoint/dataset release.
-- B has not frozen the movement threshold for event metrics.
-- The proposed E2 `training.batch_size=8` differs from E0's 16;
-  requires A review because batch effects can confound resolution.
-- **A/B approval is needed before running this experiment or changing shared
-  training settings.** This document is a reproducibility plan, not an
-  authorization to run costly training.
+B's movement threshold is frozen at 0.02152951369355096. The completed four-pair E0 event evaluation is in [the formal validation results](REAL_BATCH_EVALUATION.md#formal-v1-results).
 
 ## Report evidence to preserve after execution
 
