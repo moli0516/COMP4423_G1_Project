@@ -21,7 +21,6 @@ from deskcheck.application.real_settings import RealSettings
 from deskcheck.application.result_renderer import ResultRenderer
 from deskcheck.application.result_serializer import ResultSerializer
 from deskcheck.detection.fake_color_detector import FakeColorDetector
-from deskcheck.detection.ultralytics_detector import UltralyticsDetector
 
 st.set_page_config(page_title="DeskCheck | Jerry-C", layout="wide")
 st.title("DeskCheck: before / after review")
@@ -133,10 +132,11 @@ if st.button(button_label, disabled=frames is None or photo_only or config is No
     st.session_state.pop("c_bundle", None)
     try:
         # Reuse the exact decoded pixels for inference, rendering and downloads.
-        detector = UltralyticsDetector(config) if real_mode else FakeColorDetector()
-        result = ComparisonService(detector=detector, config=config).compare_frames(
-            *frames, pair_id=pair_id
-        )
+        if real_mode:
+            service = ComparisonService.for_real(config)
+        else:
+            service = ComparisonService(detector=FakeColorDetector(), config=config)
+        result = service.compare_frames(*frames, pair_id=pair_id)
         images = ResultRenderer().render(*frames, result)
         serializer = ResultSerializer()
         downloads = {

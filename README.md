@@ -1,14 +1,10 @@
 # DeskCheck
 
-## Part C — Jerry-C integration candidate
+DeskCheck compares two photographs of the same desk and reports which target objects were added, removed or moved.
 
-See [Jerry-C handoff](docs/jerry_c_handoff.md) for the tested synthetic UI/CLI and [real model integration](docs/REAL_MODEL_INTEGRATION.md) for the local-checkpoint YOLO backend and CLI, and [real batch evaluation](docs/REAL_BATCH_EVALUATION.md) for B's existing EvaluationRunner. Install this checkout with `python -m pip install -r requirements.txt`. A real-model inference run is NOT verified until A provides the actual .pt checkpoint and a frozen configuration.
+## Run the E0 application
 
-
-COMP4423 Group 1: compare two desk photographs and report object changes.
-
-## Status
-On the unmerged `Jerry-C` branch, Part C now includes a working Streamlit UI, image-pair loading, B-rule comparison, JSON/CSV/PNG export, synthetic demo, and a separately gated YOLO inference adapter with local-checkpoint CLI. The YOLO integration was verified with an injected model-API stub, **not an actual trained checkpoint**. The real DeskCheck dataset, training implementation, checkpoint and academic test metrics are not bundled. The training entrypoint remains a placeholder owned by A. Do not use synthetic detections as real model evidence.
+Place A's released `best.pt` in `artifacts/`. The UI, single-pair CLI and batch runner use A's `YoloDetector` through `ComparisonService.for_real`. The E0 application settings and checkpoint digest are in `configs/app.json`. Follow the [real-model instructions](docs/REAL_MODEL_INTEGRATION.md) for setup, commands and real-photo verification, or the [batch instructions](docs/REAL_BATCH_EVALUATION.md) for evaluation manifests.
 
 ## Setup
 Python 3.11+. From repository root:
@@ -75,9 +71,8 @@ All members help collect/review data and write their own reports.
 One class per snake_case.py file; PascalCase class names. Domain types are shared contracts. Match same-class objects before checking movement. Train/fine-tune a deep detector; pretrained inference alone is insufficient. See docs/implementation_plan.md.
 
 ## Data and rules
-Six proposed classes: bottle, cup, keyboard, mouse, book, scissors. Proposed statuses: added, removed, moved, unchanged. Movement threshold is deliberately unset and must be approved before test annotation. Split related capture groups near 60/20/20; never train on validation/test images. No inference from filenames or labels.
+The class order is bottle, cup, keyboard, mouse, book, scissors. B reports movement when the center displacement divided by the oriented image diagonal exceeds 0.02152951369355096. Preserve capture-group splits for training and evaluation.
 
 ## Git
-This candidate is on `Jerry-C`, in Draft PR #9. Main and A/B branches are not
-modified. A PR #8 remains a separate integration gate. Do not commit raw images,
-weights, credentials or run outputs; do not merge without team review.
+
+PR #9 merged the original C application. The follow-up C integration uses A's detector from PR #8 at `45f0e0a`. Keep the weights, photo releases and per-run outputs outside Git.

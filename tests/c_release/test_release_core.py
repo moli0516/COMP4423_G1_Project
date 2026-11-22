@@ -4,7 +4,6 @@ import copy
 import importlib
 import importlib.util
 import unittest
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -13,19 +12,11 @@ from PIL import Image
 from deskcheck.application.app_config import AppConfig
 from deskcheck.application.comparison_service import ComparisonService
 from deskcheck.application.demo_pair import make_demo_pair
-from deskcheck.application.image_frame import ImageFrame
 from deskcheck.application.image_pair_loader import ImagePairLoader
 from deskcheck.detection.fake_color_detector import FakeColorDetector
+from deskcheck.domain.image_frame import ImageFrame
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-@dataclass
-class ForeignFrame:
-    array: np.ndarray
-    width: int
-    height: int
-    source_path: object = None
 
 
 class ReleaseCoreTests(unittest.TestCase):
@@ -40,57 +31,22 @@ class ReleaseCoreTests(unittest.TestCase):
             config=AppConfig.load(ROOT / "configs/fake_app.json"),
         )
 
-    def test_explicit_shared_frame_adapter_preserves_pixels_and_b_results(self):
-        cls = self.module("frame_adapter").FrameDetectorAdapter
+    def test_detector_receives_shared_frame_and_b_results(self):
         seen = []
 
         class Detector:
             def predict(self, frame):
-                self_check = isinstance(frame, ForeignFrame) and frame.source_path is None
-                if not self_check:
-                    raise AssertionError("not the explicit foreign-frame boundary")
-                seen.append((frame.width, frame.height, frame.array.copy()))
+                seen.append(frame)
                 return FakeColorDetector().predict(frame)
 
         before, after = make_demo_pair()
-        actual = self.pipeline(cls(Detector(), ForeignFrame)).compare(before, after, "bridge")
-        expected = self.pipeline().compare(before, after, "bridge")
-        self.assertEqual(actual, expected)
+        frames = ImagePairLoader().load(before, after, "shared")
+        actual = self.pipeline(Detector()).compare_frames(*frames, pair_id="shared")
+        self.assertEqual(actual, self.pipeline().compare(before, after, "shared"))
         self.assertEqual(len(seen), 2)
-        frames = ImagePairLoader().load(before, after, "bridge")
-        for frame, (width, height, pixels) in zip(frames, seen):
-            self.assertEqual((width, height), (frame.width, frame.height))
-            np.testing.assert_array_equal(pixels, frame.array)
-
-    def test_mutating_adapter_is_rejected_without_mutating_c_input(self):
-        cls = self.module("frame_adapter").FrameDetectorAdapter
-
-        class BadDetector:
-            def predict(self, frame):
-                frame.array[:] = 42
-                return []
-
-        frame = ImageFrame(np.zeros((7, 9, 3), dtype=np.uint8))
-        with self.assertRaisesRegex(ValueError, "(?i)mutat"):
-            cls(BadDetector(), ForeignFrame).predict(frame)
-        self.assertFalse(frame.array.any())
-
-    def test_adapter_rejects_resizing_and_does_not_swallow_failure(self):
-        cls = self.module("frame_adapter").FrameDetectorAdapter
-        frame = ImageFrame(np.zeros((7, 9, 3), dtype=np.uint8))
-
-        def resized(**kw):
-            return ForeignFrame(kw["array"][:2], kw["width"], 2)
-
-        with self.assertRaisesRegex(ValueError, "(?i)canonical|pixel|dimension"):
-            cls(FakeColorDetector(), resized).predict(frame)
-
-        class Broken:
-            def predict(self, frame):
-                raise RuntimeError("model intentionally unavailable")
-
-        with self.assertRaisesRegex(RuntimeError, "intentionally unavailable"):
-            cls(Broken(), ForeignFrame).predict(frame)
+        for frame, delivered in zip(frames, seen):
+            self.assertIs(type(delivered), ImageFrame)
+            self.assertIs(delivered, frame)
 
     def test_display_filter_preserves_complete_export_and_correspondence(self):
         mod = self.module("presentation")

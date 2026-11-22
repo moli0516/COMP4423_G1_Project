@@ -6,6 +6,7 @@ The only model used by tests is an explicitly injected API stub, NOT real YOLO.
 import hashlib
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -14,9 +15,8 @@ from unittest.mock import patch
 
 import numpy as np
 from PIL import Image
+from streamlit.testing.v1 import AppTest
 from test_yolo_real_pipeline import Model
-
-from deskcheck.detection.ultralytics_detector import UltralyticsDetector
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -89,10 +89,10 @@ class RealBatchEvaluationTests(unittest.TestCase):
     def update_manifest(self):
         self.manifest_file.write_text(json.dumps(self.manifest), encoding="utf-8")
 
-    def load_cli(self):
-        path = ROOT / "scripts" / "evaluate_real_pairs.py"
+    def load_cli(self, script="evaluate_real_pairs"):
+        path = ROOT / "scripts" / f"{script}.py"
         self.assertTrue(path.is_file(), "C real evaluation entry point is absent")
-        spec = importlib.util.spec_from_file_location("c_real_eval", path)
+        spec = importlib.util.spec_from_file_location(script, path)
         module = importlib.util.module_from_spec(spec)
         assert spec.loader is not None
         spec.loader.exec_module(module)
@@ -108,10 +108,7 @@ class RealBatchEvaluationTests(unittest.TestCase):
         cli = self.load_cli()
         model = Model()
 
-        def detector_factory(settings):
-            return UltralyticsDetector(settings, model=model)
-
-        with patch.object(cli, "UltralyticsDetector", side_effect=detector_factory):
+        with model.installed():
             self.assertEqual(self.call_cli(cli), 0)
         self.assertEqual(len(model.calls), 4)
         self.assertEqual(
@@ -135,6 +132,39 @@ class RealBatchEvaluationTests(unittest.TestCase):
         self.assertEqual(metadata["metric_scope"], "localized events and no-change alarms; excludes detector AP")
         self.assertFalse((self.output / "result.json").exists())
 
+    def test_same_checkpoint_config_and_pair_match_across_real_entrypoints(self):
+        before, after = self.folder / "before.png", self.folder / "after.png"
+        cli_output = self.folder / "single"
+        argv = [
+            "predict_real_pair.py", "--config", str(self.settings_file),
+            "--before", str(before), "--after", str(after),
+            "--pair-id", "movement", "--output", str(cli_output),
+        ]
+        model = Model()
+        with model.installed(), patch.dict(os.environ, {"DESKCHECK_REAL_CONFIG": str(self.settings_file)}):
+            with patch.object(sys, "argv", argv):
+                self.assertEqual(self.load_cli("predict_real_pair").main(), 0)
+            self.assertEqual(self.call_cli(self.load_cli()), 0)
+            app = AppTest.from_file(str(ROOT / "app/streamlit_app.py"), default_timeout=30).run()
+            app.radio[0].set_value("Run local YOLO checkpoint").run()
+            app.text_input[0].set_value("movement")
+            app.file_uploader[0].set_value(("before.png", before.read_bytes(), "image/png"))
+            app.file_uploader[1].set_value(("after.png", after.read_bytes(), "image/png")).run()
+            app.button[0].click().run()
+        self.assertEqual(len(app.exception), 0)
+        self.assertEqual(len(app.error), 0)
+        single = json.loads((cli_output / "result.json").read_bytes())
+        self.assertEqual(json.loads(app.json[0].value), single)
+        self.assertEqual(len(single["records"]), 2)
+        batch = json.loads((self.output / "predictions.json").read_bytes())
+        self.assertEqual(batch["movement"], single["records"])
+        provenance = json.loads((self.output / "run_metadata.json").read_bytes())["provenance"]
+        for key in ("config_sha256", "checkpoint_sha256", "confidence_threshold",
+                    "nms_iou_threshold", "imgsz", "movement_threshold", "rules_version"):
+            self.assertEqual(provenance[key], single["metadata"][key])
+        for name, content in app.session_state["c_bundle"]["downloads"].items():
+            self.assertEqual(content, (cli_output / name).read_bytes(), name)
+
     def test_missing_checkpoint_fails_without_fake_fallback_or_outputs(self):
         cli = self.load_cli()
         self.weights.unlink()
@@ -145,9 +175,10 @@ class RealBatchEvaluationTests(unittest.TestCase):
         cli = self.load_cli()
         del self.manifest["ground_truth"]["control"]
         self.update_manifest()
-        with patch.object(cli, "UltralyticsDetector",
-                          side_effect=AssertionError("model must not be loaded")):
+        model = Model()
+        with model.installed():
             self.assertNotEqual(self.call_cli(cli), 0)
+        model.constructor.assert_not_called()
         self.assertFalse(self.output.exists())
 
     def test_existing_target_is_never_overwritten(self):

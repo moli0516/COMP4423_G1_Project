@@ -14,7 +14,9 @@ Contract (from B's earlier invariants):
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from math import isfinite
 from pathlib import Path
 
 from deskcheck.detection.object_detector import ObjectDetector
@@ -81,15 +83,26 @@ class YoloDetector(ObjectDetector):
                 "Run: pip install -e '.[vision]'"
             ) from exc
 
-        self._model = YOLO(str(self._config.checkpoint_path))
+        model = YOLO(str(self._config.checkpoint_path))
 
-        model_names = getattr(self._model, "names", None)
-        if model_names is None:
-            raise RuntimeError(
-                "loaded model does not expose a 'names' attribute; "
-                "cannot perform canonical class mapping."
-            )
-        self._names = dict(model_names)
+        model_names = getattr(model, "names", None)
+        if isinstance(model_names, Mapping):
+            names = dict(model_names)
+        elif isinstance(model_names, (list, tuple)):
+            names = dict(enumerate(model_names))
+        else:
+            raise TypeError("Checkpoint must provide an indexed class map")
+        if any(type(index) is not int or not isinstance(name, str) for index, name in names.items()):
+            raise ValueError("Checkpoint class map must associate integer IDs with names")
+        names = {index: name.strip().casefold() for index, name in names.items()}
+        model_labels = list(names.values())
+        for required in self._config.class_names:
+            if model_labels.count(required) != 1:
+                raise ValueError(f"Checkpoint must map required class {required!r} exactly once")
+
+        # Publish to the cache only once the checkpoint and its map are both usable.
+        self._model = model
+        self._names = names
         return self._model, self._names
 
     def _canonical_class_id(self, backend_name: str) -> int | None:
@@ -108,25 +121,26 @@ class YoloDetector(ObjectDetector):
 
         model, names = self._load_model()
 
-        # Do not mutate caller's array — pass a copy to ultralytics.
-        # Ultralytics may resize internally but must not modify in place.
-        arr = image.array.copy()
+        # Ultralytics takes BGR for NumPy sources. Keep the shared RGB frame intact.
+        bgr = image.array[:, :, ::-1].copy()
 
         # Run inference. Ultralytics returns boxes in the ORIGINAL input
         # image coordinate system (it undoes its own letterbox internally).
         results = model.predict(
-            source=arr,
+            source=bgr,
             imgsz=self._config.image_size,
             conf=self._config.confidence_threshold,
             iou=self._config.nms_iou_threshold,
             device=self._config.device,
             verbose=False,
         )
-        if not results:
-            return []
+        if len(results) != 1:
+            raise ValueError("Expected one detector result per shared frame")
         result = results[0]
-        boxes = getattr(result, "boxes", None)
-        if boxes is None or len(boxes) == 0:
+        if tuple(result.orig_shape) != (image.height, image.width):
+            raise ValueError("Detector geometry disagrees with the oriented input")
+        boxes = result.boxes
+        if boxes is None:
             return []
 
         detections: list[Detection] = []
@@ -141,6 +155,9 @@ class YoloDetector(ObjectDetector):
 
             confidence = float(box.conf[0].item())
             x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
+
+            if not all(isfinite(v) for v in (x1, y1, x2, y2)):
+                raise ValueError("Detector returned a nonfinite box")
 
             # Clip to image bounds (ultralytics occasionally emits +/-1 px outside)
             x1 = max(0.0, min(x1, image.width))

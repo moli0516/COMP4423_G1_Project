@@ -2,24 +2,26 @@
 
 import hashlib
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import ClassVar
+from unittest.mock import Mock, patch
 
 import numpy as np
 from PIL import Image
 
 from deskcheck.application.comparison_service import ComparisonService
 from deskcheck.application.real_settings import RealSettings
-from deskcheck.detection.ultralytics_detector import UltralyticsDetector
 
 
-class Boxes:
-    def __init__(self, rows):
-        self.xyxy = np.array([r[0] for r in rows], dtype=float).reshape(-1, 4)
-        self.conf = np.array([r[1] for r in rows], dtype=float)
-        self.cls = np.array([r[2] for r in rows], dtype=float)
+class Box:
+    def __init__(self, xyxy, confidence, class_id):
+        self.xyxy = np.array([xyxy], dtype=float)
+        self.conf = np.array([confidence])
+        self.cls = np.array([class_id])
 
 
 class Model:
@@ -34,6 +36,11 @@ class Model:
 
     def __init__(self):
         self.calls = []
+        self.constructor = Mock(return_value=self)
+
+    def installed(self):
+        """Substitute only the optional YOLO backend, leaving the real adapter in place."""
+        return patch.dict(sys.modules, {"ultralytics": SimpleNamespace(YOLO=self.constructor)})
 
     def predict(self, source, **kwargs):
         assert source.dtype == np.uint8
@@ -42,7 +49,7 @@ class Model:
             rows = [([10, 10, 25, 25], 0.9, 1), ([40, 10, 55, 25], 0.8, 3)]
         else:
             rows = [([70, 10, 85, 25], 0.91, 1), ([40, 10, 55, 25], 0.8, 3)]
-        return [type("Result", (), {"boxes": Boxes(rows), "orig_shape": source.shape[:2]})()]
+        return [SimpleNamespace(boxes=[Box(*row) for row in rows], orig_shape=source.shape[:2])]
 
 
 class RealIntegration(unittest.TestCase):
@@ -71,8 +78,7 @@ class RealIntegration(unittest.TestCase):
     def test_real_backend_uses_image_pixels_maps_model_classes_and_reuses_b(self):
         settings = RealSettings.load(self.config)
         model = Model()
-        detector = UltralyticsDetector(settings, model=model)
-        service = ComparisonService(config=settings, detector=detector)
+        service = ComparisonService.for_real(settings)
         before = np.zeros((120, 160, 3), dtype=np.uint8)
         after = before.copy()
         before[0, 0] = (255, 0, 0)
@@ -80,7 +86,9 @@ class RealIntegration(unittest.TestCase):
         b, a = self.root / "b.png", self.root / "a.png"
         Image.fromarray(before).save(b)
         Image.fromarray(after).save(a)
-        result = service.compare(b, a, "real-test")
+        with model.installed():
+            result = service.compare(b, a, "real-test")
+        model.constructor.assert_called_once_with(str(self.weight))
         self.assertEqual(
             [(r["class_id"], r["status"]) for r in result["records"]],
             [(0, "moved"), (1, "unchanged")],
@@ -88,7 +96,11 @@ class RealIntegration(unittest.TestCase):
         self.assertEqual(result["metadata"]["mode"], "real")
         self.assertEqual(result["metadata"]["checkpoint_sha256"], self.values["checkpoint_sha256"])
         self.assertEqual([x[0][0, 0].tolist() for x in model.calls], [[0, 0, 255], [255, 0, 0]])
-        self.assertEqual(model.calls[0][1]["device"], "cpu")
+        for _, options in model.calls:
+            self.assertEqual(options["device"], "cpu")
+            self.assertEqual(options["conf"], self.values["confidence_threshold"])
+            self.assertEqual(options["iou"], self.values["nms_iou_threshold"])
+            self.assertEqual(options["imgsz"], self.values["imgsz"])
 
     def test_missing_or_mismatched_weight_refuses_real_mode(self):
         self.weight.write_bytes(b"not matching checksum")
@@ -114,8 +126,12 @@ class RealIntegration(unittest.TestCase):
         self.config.write_text(json.dumps(self.values), encoding="utf-8")
         model = Model()
         model.names = {0: "bottle", 1: "cup"}
-        with self.assertRaisesRegex(ValueError, "(?i)class|missing"):
-            UltralyticsDetector(RealSettings.load(self.config), model=model)
+        sample = self.root / "frame.png"
+        Image.new("RGB", (20, 20)).save(sample)
+        service = ComparisonService.for_real(RealSettings.load(self.config))
+        with model.installed(), self.assertRaisesRegex(ValueError, "(?i)class|missing"):
+            service.compare(sample, sample, "missing-class")
+        self.assertEqual(model.calls, [])
 
     def test_fake_app_config_refuses_real_config(self):
         from deskcheck.application.app_config import AppConfig

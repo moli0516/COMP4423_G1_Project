@@ -1,10 +1,13 @@
 {
   "schema_version": "1.0",
-  "checkpoint_path": "artifacts/best.pt",
-  "input_size": 640,
-  "confidence_threshold": null,
-  "nms_iou": null,
-  "movement_threshold": null,
-  "rules_version": "draft-not-approved",
+  "mode": "real",
+  "checkpoint_path": "../artifacts/best.pt",
+  "checkpoint_sha256": "82ed9f8569b705e7074f44d81006515da3e02dde3284a211c4a73a5f9d96c438",
+  "model_origin": "A/E0_baseline, formal v1, yolov8n, selected epoch 64",
+  "confidence_threshold": 0.20,
+  "movement_threshold": 0.02152951369355096,
+  "nms_iou_threshold": 0.35,
+  "imgsz": 640,
+  "rules_version": "a_contracts_freeze@45f0e0a-section-3c",
   "class_names": ["bottle", "cup", "keyboard", "mouse", "book", "scissors"]
 }

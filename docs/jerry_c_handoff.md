@@ -1,5 +1,7 @@
 # Jerry-C: Part C handoff (11 November 2026)
 
+The following notes record earlier milestones. The 22 November E0 integration and current commands are in [the real-model handoff](REAL_MODEL_INTEGRATION.md).
+
 **Current entry (12 November):** use [C_SOURCE_RELEASE.md](C_SOURCE_RELEASE.md)
 for setup diagnostics, source packaging and fresh-directory verification. The
 sections below preserve earlier verification history, not new browser/model

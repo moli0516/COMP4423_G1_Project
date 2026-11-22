@@ -59,7 +59,7 @@ def allowed(name: str) -> bool:
     ):
         return False
     return (
-        name in ROOT_FILES or name == "configs/fake_app.json"
+        name in ROOT_FILES or name in {"configs/app.json", "configs/fake_app.json"}
         or (path.parts[0] in SOURCE_DIRS and path.suffix in SOURCE_SUFFIXES)
     )
 

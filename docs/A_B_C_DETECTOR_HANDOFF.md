@@ -1,5 +1,7 @@
 # Jerry-C / A / B detector handoff — 2026-11-11
 
+The following notes record earlier milestones. The 22 November E0 integration and current commands are in [the real-model handoff](REAL_MODEL_INTEGRATION.md).
+
 **Status: A has accepted the ownership split in [PR #9](https://github.com/moli0516/COMP4423_G1_Project/pull/9#issuecomment-6799449023); B's threshold approval and the shared-interface merge remain separate and pending.**
 
 ## Evidence and exact revisions

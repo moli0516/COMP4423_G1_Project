@@ -9,10 +9,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import test_yolo_real_pipeline as pipeline
 from PIL import Image
-from test_yolo_real_pipeline import Model, RealIntegration
-
-from deskcheck.detection.ultralytics_detector import UltralyticsDetector
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -74,7 +72,7 @@ class RealCliTests(unittest.TestCase):
 
     def test_real_cli_exports_b_records_with_explicit_injected_model(self):
         cli = self.load_cli()
-        helper = RealIntegration()
+        helper = pipeline.RealIntegration()
         helper.setUp()
         try:
             before = np.zeros((120, 160, 3), dtype=np.uint8)
@@ -99,11 +97,9 @@ class RealCliTests(unittest.TestCase):
                 str(output),
             ]
 
-            def stub_detector(settings):
-                return UltralyticsDetector(settings, model=Model())
-
+            model = pipeline.Model()
             with (
-                patch.object(cli, "UltralyticsDetector", side_effect=stub_detector),
+                model.installed(),
                 patch.object(sys, "argv", argv),
             ):
                 self.assertEqual(cli.main(), 0)

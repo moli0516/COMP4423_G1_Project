@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageOps
 
-from deskcheck.application.image_frame import ImageFrame
+from deskcheck.domain.image_frame import ImageFrame
 
 
 class ImagePairLoader:
@@ -38,7 +38,9 @@ class ImagePairLoader:
                     try:
                         rgb = oriented.convert("RGB")
                         try:
-                            pixels = np.array(rgb, dtype=np.uint8, copy=True)
+                            pixels = np.frombuffer(rgb.tobytes(), dtype=np.uint8).reshape(
+                                rgb.height, rgb.width, 3
+                            )
                         finally:
                             rgb.close()
                     finally:
@@ -50,4 +52,7 @@ class ImagePairLoader:
             Image.DecompressionBombWarning,
         ) as error:
             raise ValueError("Cannot decode image input") from error
-        return ImageFrame(pixels)
+        return ImageFrame(
+            array=pixels, width=pixels.shape[1], height=pixels.shape[0],
+            source_path=None if isinstance(source, bytes) else Path(source),
+        )

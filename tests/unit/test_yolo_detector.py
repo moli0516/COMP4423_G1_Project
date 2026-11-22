@@ -40,6 +40,7 @@ class _FakeResults:
     def __init__(self, boxes):
         self.boxes = boxes
         self.names = COCO_NAMES
+        self.orig_shape = (480, 640)
 
 
 def _make_frame(w: int = 640, h: int = 480) -> ImageFrame:
@@ -126,7 +127,7 @@ def test_predict_empty_returns_empty_list(tmp_path: Path) -> None:
     det = _make_detector(tmp_path)
     fake_model = MagicMock()
     fake_model.names = COCO_NAMES
-    fake_model.predict.return_value = [MagicMock(boxes=[])]
+    fake_model.predict.return_value = [_FakeResults([])]
 
     with patch.object(det, "_load_model", return_value=(fake_model, COCO_NAMES)):
         assert det.predict(_make_frame()) == []
@@ -158,9 +159,34 @@ def test_predict_does_not_mutate_input_array(tmp_path: Path) -> None:
     original = frame.array.copy()
     fake_model = MagicMock()
     fake_model.names = COCO_NAMES
-    fake_model.predict.return_value = [MagicMock(boxes=[])]
+    fake_model.predict.return_value = [_FakeResults([])]
 
     with patch.object(det, "_load_model", return_value=(fake_model, COCO_NAMES)):
         det.predict(frame)
 
     assert np.array_equal(frame.array, original)
+
+
+@pytest.mark.parametrize("wrong", [[], [_FakeResults([]), _FakeResults([])]])
+def test_unexpected_results_cannot_be_published_as_an_empty_scene(tmp_path, wrong):
+    det = _make_detector(tmp_path)
+    model = MagicMock()
+    model.predict.return_value = wrong
+    with (
+        patch.object(det, "_load_model", return_value=(model, COCO_NAMES)),
+        pytest.raises(ValueError, match="one detector result"),
+    ):
+        det.predict(_make_frame())
+
+
+def test_rejects_detector_geometry_from_another_orientation(tmp_path):
+    det = _make_detector(tmp_path)
+    model = MagicMock()
+    result = _FakeResults([])
+    result.orig_shape = (640, 480)
+    model.predict.return_value = [result]
+    with (
+        patch.object(det, "_load_model", return_value=(model, COCO_NAMES)),
+        pytest.raises(ValueError, match="geometry"),
+    ):
+        det.predict(_make_frame())

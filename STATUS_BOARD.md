@@ -1,5 +1,7 @@
 # Jerry-C sprint status
 
+The following notes record earlier milestones. The 22 November E0 integration and current commands are in [the real-model handoff](docs/REAL_MODEL_INTEGRATION.md).
+
 Goal: a locally runnable C application with consistent visual/export evidence and
 reproducible setup/release. Reader: C user and A/B reviewers. No substitute detector,
 trainer, invented annotations, or claim of real inference.

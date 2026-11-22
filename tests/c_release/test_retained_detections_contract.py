@@ -12,11 +12,11 @@ import numpy as np
 from deskcheck.application.app_config import AppConfig
 from deskcheck.application.comparison_service import ComparisonService
 from deskcheck.application.demo_pair import make_demo_pair
-from deskcheck.application.image_frame import ImageFrame
 from deskcheck.application.result_serializer import ResultSerializer
 from deskcheck.detection.fake_color_detector import FakeColorDetector
 from deskcheck.domain.bounding_box import BoundingBox
 from deskcheck.domain.detection import Detection
+from deskcheck.domain.image_frame import ImageFrame
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -57,7 +57,7 @@ class RetainedDetectionsContractTests(unittest.TestCase):
                 ]
 
         service = ComparisonService(detector=ExtraRawDetections(), config=self.config())
-        frame = ImageFrame(np.zeros((15, 15, 3), dtype=np.uint8))
+        frame = ImageFrame(np.zeros((15, 15, 3), dtype=np.uint8), width=15, height=15)
         result = service.compare_frames(frame, frame, pair_id="no-gold")
         self.assertEqual(
             result["before_detections"],
