@@ -32,6 +32,12 @@ python scripts/train.py --config runs/e2_preflight/e2_960_b16.json --dataset run
 
 Use a separate fresh run directory per arm. On a different GPU, run the 640 control there with the same initialization, batch and environment as the 960 arm. Check the backend log for an out-of-memory retry or a change in effective batch before interpreting the comparison.
 
+## Training pipeline verification
+
+C ran the shared training CLI at `b965d5b` on the 28 training images and eight validation images for one epoch at 960 pixels, batch 1, on CPU. A PyTorch post-step hook observed one SGD update. The training CSV reported 29.0053 seconds. Both the backend's validation-selected checkpoint and the copy next to the run metadata had SHA-256 `1632c34fbbbef57bae11605ac5999345d148274d0c0ed3ddccfbe827eecbfe3d`. Reloading it on a validation image produced nine finite detections. This run used a fresh `yolov8n.pt` with SHA-256 `f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36`. A's historical initialization digest is still unconfirmed.
+
+The 640/960 comparison still requires matched runs on the selected GPU. The CPU epoch verifies that the data, optimizer, checkpoint and relative output directory work together.
+
 ## Choose the comparison
 
 | Configuration | Image size | Micro-batch | Use |

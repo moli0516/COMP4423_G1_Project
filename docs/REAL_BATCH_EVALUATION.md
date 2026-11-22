@@ -92,6 +92,10 @@ At event IoU 0.50, the evaluator matched 22 of 23 ground-truth events. Added and
 
 On G01P1 the before-frame scissors scored 0.6526 at IoU 0.9687 against the annotated box. In an after-frame diagnostic pass at confidence 0.001, the scissors candidate still localized the object at IoU 0.9425 but scored only 0.1929, below the released cutoff of 0.20. A cup prediction at the same position scored 0.2152. B retained the separate true cup at 0.8781. The false removal therefore arose at the detector's class/score decision. The formal results above use the original thresholds.
 
+### E0 detector AP
+
+Using Ultralytics 8.4.215's native validator on the eight released YOLO validation JPEGs and their 44 labels, C reproduced the detector AP reported for E0 epoch 64. At nominal size 640, evaluation confidence 0.001 and NMS IoU 0.70 on CPU, mAP50 was **0.99500** and mAP50–95 was **0.8778869**. The released training CSV rounds the latter to 0.87789. These metrics use detector predictions before B's one-per-class filter. The application uses the frozen thresholds and the original photographs for the event scores above.
+
 | Input | Measured SHA-256 |
 | --- | --- |
 | Formal v1 ZIP (356,090,127 bytes) | `0a49f3bc1308f1d5ac292cfb6274c17ef89abcc616dc21c1dd1eea0eeafa63f9` |

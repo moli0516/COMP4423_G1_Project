@@ -3,6 +3,7 @@
 import importlib.util
 import io
 import json
+import subprocess
 import zipfile
 from pathlib import Path
 
@@ -29,6 +30,49 @@ def test_archive_is_repeatable_complete_and_offline_verifiable(tmp_path):
     assert manifest["scope"] == "C_SOURCE_ONLY"
     assert manifest["final_submission_ready"] is False
     assert manifest["real_inference"] == "NOT_RUN"
+
+
+def test_source_bytes_survive_git_checkout_and_export_settings(tmp_path):
+    def git(*args):
+        return subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
+
+    git("init", "-b", "Jerry-C")
+    git("config", "core.autocrlf", "false")
+    files = {
+        **payloads(),
+        "Start Jerry-C.sh": b"#!/bin/sh\necho ready\n",
+        "docs/preserve.txt": b"literal CRLF\r\n",
+        "docs/version.txt": b"$Format:%H$\n",
+    }
+    (tmp_path / ".gitattributes").write_bytes(
+        b"docs/preserve.txt -text\ndocs/version.txt export-subst\n"
+    )
+    for name, data in files.items():
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    git("add", "--all")
+    git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "fixture")
+    baseline = None
+    for autocrlf in ("true", "false", "input"):
+        git("config", "core.autocrlf", autocrlf)
+        commit, stored = release.committed_sources(tmp_path)
+        assert stored == files
+        archive = release.make_archive(commit, stored)
+        if baseline is None:
+            baseline = archive
+        assert archive == baseline
+
+
+def test_uncompressed_release_and_older_deflated_archive_both_verify(tmp_path):
+    current = release.make_archive(SHA, payloads())
+    older = tmp_path / "deflated.zip"
+    with zipfile.ZipFile(io.BytesIO(current)) as src:
+        assert all(info.compress_type == zipfile.ZIP_STORED for info in src.infolist())
+        with zipfile.ZipFile(older, "w", compression=zipfile.ZIP_DEFLATED) as dest:
+            for name in src.namelist():
+                dest.writestr(name, src.read(name))
+    assert release.verify_release(older)["source_commit"] == SHA
 
 
 @pytest.mark.parametrize("name", [

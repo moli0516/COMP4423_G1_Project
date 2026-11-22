@@ -76,9 +76,10 @@ Build from a clean `Jerry-C` or `feat/c-e0-detector-integration` worktree.
 Builds use committed Git bytes. The archive includes source, scripts, tests,
 documentation, the synthetic and E0 app configs, and the public experiment
 configs. The team distributes weights and photos separately. The archive
-has deterministic ordering/timestamps and per-file SHA256
-plus full source commit. Repeat builds under the same compressor produce identical
-bytes. This is integrity checking, not cryptographic proof of authorship or safety.
+records the full source commit and SHA-256 of each file. It stores the raw Git
+blobs with fixed ZIP metadata, so checkout line endings and compression-library
+versions do not affect the archive bytes. The verifier also accepts older
+compressed archives.
 Dirty worktrees, symlinks, incomplete inventories and existing output names fail.
 Verification works without Git and rejects missing/extra/tampered/unsafe entries,
 Windows reserved names, case aliases and file/directory collisions.
