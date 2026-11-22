@@ -19,6 +19,11 @@ ROOT_FILES = {
     "README.md", "pyproject.toml", "requirements.txt", "requirements-windows-py312.lock.txt",
     "Start Jerry-C.cmd", "Start Jerry-C.sh", "STATUS_BOARD.md", ".gitignore", "LICENSE",
 }
+PUBLIC_CONFIGS = {
+    "configs/app.json", "configs/fake_app.json",
+    "configs/experiments/baseline.json", "configs/experiments/augmentation.json",
+    "configs/experiments/resolution.json",
+}
 SOURCE_DIRS = {"src", "app", "scripts", "tests", "docs"}
 SOURCE_SUFFIXES = {".py", ".md", ".json", ".jsonl", ".yaml", ".yml", ".txt", ".toml"}
 REQUIRED = {
@@ -59,7 +64,7 @@ def allowed(name: str) -> bool:
     ):
         return False
     return (
-        name in ROOT_FILES or name in {"configs/app.json", "configs/fake_app.json"}
+        name in ROOT_FILES or name in PUBLIC_CONFIGS
         or (path.parts[0] in SOURCE_DIRS and path.suffix in SOURCE_SUFFIXES)
     )
 
