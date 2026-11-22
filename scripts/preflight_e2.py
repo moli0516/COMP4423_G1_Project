@@ -10,12 +10,12 @@ from contextlib import chdir
 from importlib.metadata import version
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from deskcheck.training import trainer
 from deskcheck.training.model_artifact import sha256_file
 from deskcheck.training.training_config import load
 
@@ -44,7 +44,10 @@ def probe(cli, config: Path, scratch: Path) -> tuple[str, dict]:
             call["kwargs"] = kwargs
             raise ReachedBackend
 
-    with patch.object(trainer, "_lazy_import_ultralytics", return_value=(RecordingModel, "spy")):
+    # The shared trainer sets runs_dir as well as constructing YOLO. Keep both
+    # effects inside the probe so its temporary path never reaches user settings.
+    backend = SimpleNamespace(YOLO=RecordingModel, __version__="spy", settings={})
+    with patch.dict(sys.modules, {"ultralytics": backend}):
         try:
             cli(
                 [
