@@ -82,8 +82,9 @@ def git_bytes(root: Path, *args) -> bytes:
 
 
 def committed_sources(root: Path) -> tuple[str, dict[str, bytes]]:
-    if git_bytes(root, "branch", "--show-current").strip() != b"Jerry-C":
-        raise ValueError("Build only from the Jerry-C branch")
+    branch = git_bytes(root, "branch", "--show-current").strip()
+    if branch not in {b"Jerry-C", b"feat/c-e0-detector-integration"}:
+        raise ValueError("Build from the Jerry-C release or E0 integration branch")
     if git_bytes(root, "status", "--porcelain=v1", "--untracked-files=normal").strip():
         raise ValueError("Source worktree is dirty; preserve changes and commit/review before release")
     commit = git_bytes(root, "rev-parse", "HEAD").decode("ascii").strip()

@@ -75,6 +75,6 @@ From the checkout, supply paths to the released files and a new output directory
 python scripts/prepare_real_validation.py --annotations release/pairs.jsonl --splits release/splits.json --output runs/val_manifest.json
 python scripts/evaluate_real_pairs.py --config configs/app.json --manifest runs/val_manifest.json --output runs/e0_val
 ```
- The helper uses A's catalog and event conversion, selects the validation IDs, preserves missing sides and carries the independently captured control flags. B requires at least one eligible control with annotated unchanged objects to calculate the no-change rate.
+The helper uses A's catalog and event conversion, selects the validation IDs, preserves missing sides and carries the independently captured control flags. B requires at least one eligible control with annotated unchanged objects to calculate the no-change rate.
 
 The validation helper has been exercised on native-schema fixtures. A full formal release run still requires accessible copies of the validation photographs and their manifests.
