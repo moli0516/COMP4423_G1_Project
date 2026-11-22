@@ -2,6 +2,45 @@
 
 C trained a fresh 640-pixel control and a 960-pixel candidate on the same machine from the same YOLOv8n initialization. A's released E0 remains the production checkpoint. A owns the detector and common trainer, B owns the event rules and evaluation, and C ran the comparison through those existing interfaces.
 
+## Matched RTX 2060 SUPER result
+
+C completed both training runs on the same 8 GiB card at batch 2. The run used Python 3.11.18, Torch 2.9.1+cu126, Ultralytics 8.4.215, mixed precision and zero data-loader workers. The starting weights and all 72 effective files matched the CPU study. The desktop training environment used Pillow 13.0.0. The application declares Pillow below 13. The production comparison service uses CPU inference by default.
+
+| Desktop measurement | 640 | 960 |
+| --- | ---: | ---: |
+| Completed epochs (selected epoch) | 46 (26) | 28 (8) |
+| Observed SGD updates | 18 | 10 |
+| Native detector mAP50 | 0.98140 | 0.99500 |
+| Native detector mAP50–95 | 0.84079 | 0.88475 |
+| Correct localized application events (CPU inference) | 21 / 23 | 23 / 23 |
+| Event macro-F1 | 0.86184 | 1.00000 |
+| Change-only macro-F1 | 0.83333 | 1.00000 |
+| Total elapsed training time | 408.70 s | 355.17 s |
+| Peak CUDA tensor memory allocated | 406 MiB | 655 MiB |
+| Peak memory reserved by PyTorch | 426 MiB | 746 MiB |
+| Median batch-one CUDA prediction | 126.46 ms | 126.54 ms |
+
+The desktop-trained 640 checkpoint reported an unchanged book as removed on both G01P1 and G01P2. The 960 checkpoint classified both correctly. Both scored zero false alarms on the sole eligible independent control. The event evaluation used the regular CPU application and the four original validation pairs.
+
+The 960 checkpoint gained 0.04396 mAP50–95. Its largest class gains were book and scissors. Bottle and keyboard scored lower. GPU latency samples spanned about 109–148 ms at 640 and 113–174 ms at 960 on the occupied desktop. A median difference under 0.1 ms is too small to establish a speed difference here. The 960 run stopped earlier, so its shorter total wall time includes 18 fewer epochs. Memory values are PyTorch process peaks. Other desktop applications also occupied the GPU.
+
+| Class | Validation boxes | 640 AP50–95 | 960 AP50–95 |
+| --- | ---: | ---: | ---: |
+| Bottle | 8 | 0.8759 | 0.8548 |
+| Cup | 5 | 0.8155 | 0.8550 |
+| Keyboard | 8 | 0.8955 | 0.8790 |
+| Mouse | 8 | 0.8449 | 0.8524 |
+| Book | 8 | 0.8283 | 0.9950 |
+| Scissors | 7 | 0.7846 | 0.8723 |
+
+Selected desktop checkpoint digests are `8b4e3c46962a8dc79feb0d7637fc2af6fc6cdc23f1a275ac96a9bdbf4003a5e5` (640) and `81d6e3523092179aca8ac67b3933fe5ad480dbbcc70933d7bf3759fa849e916d` (960). The independent native comparison report has SHA-256 `c9ffbadfbc2c5866a1e0e037524e74b9734737e706f9fa103ec8c16fed892e7c`.
+
+### Supported application runtime on the desktop
+
+C also ran the production E0 CLI on the original 4096 × 3072 G06P1 pair using Python 3.12.16, Torch 2.11.0+cu128, Ultralytics 8.4.215 and Pillow 12.3.0. All project core and vision constraints and the dependency check passed. The stock CLI used CPU and wrote JSON, CSV and both PNGs. A second comparison used the same frames and settings with the detector explicitly on CUDA. Both reported a moved cup and five unchanged objects. The maximum coordinate difference was 0.00049 original-image pixels. This train/dev pair validates desktop execution. The accuracy results use the separate validation split.
+
+[Machine-readable experiment results](evidence/c_e2_validation.json)
+
 ## Matched CPU result
 
 | Formal v1 validation | 640 | 960 |
