@@ -1,6 +1,7 @@
 """Decode a canonical pair without model resizing or silent alpha compositing."""
 
 import io
+import sys
 import warnings
 from pathlib import Path
 
@@ -29,7 +30,13 @@ class ImagePairLoader:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", Image.DecompressionBombWarning)
-                with Image.open(target) as image:
+                # Ultralytics 8.4.215 patches PIL.Image.open to install a HEIF plugin on
+                # any unidentified input. Use its saved native opener for C's uploads.
+                opener = Image.open
+                patches = sys.modules.get("ultralytics.utils.patches")
+                if patches is not None and opener is getattr(patches, "image_open", None):
+                    opener = patches._image_open
+                with opener(target) as image:
                     if image.width * image.height > self.MAX_PIXELS:
                         raise ValueError("Image exceeds the 20-million-pixel resource limit")
                     if "A" in image.getbands() or "transparency" in image.info:

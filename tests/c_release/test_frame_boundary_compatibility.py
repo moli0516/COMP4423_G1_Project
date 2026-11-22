@@ -92,3 +92,20 @@ def test_mirrored_exif_to_shared_frame_keeps_rgb_and_original_boxes(orientation,
     assert result["records"][0]["status"] == "unchanged"
     assert result["metadata"]["mode"] == "fake"
     assert result["metadata"]["checkpoint_sha256"] is None
+
+
+def test_corrupt_input_uses_pillow_decoder_after_detector_patches(monkeypatch):
+    import sys
+    from types import SimpleNamespace
+
+    def process_wide_open(*args, **kwargs):
+        pytest.fail("Loading a C upload should never invoke the detector's format installer")
+
+    # Ultralytics 8.4.215 saves Pillow's opener, then replaces it process-wide.
+    patches = SimpleNamespace(_image_open=Image.open, image_open=process_wide_open)
+    monkeypatch.setitem(sys.modules, "ultralytics.utils.patches", patches)
+    monkeypatch.setattr(Image, "open", process_wide_open)
+    with pytest.raises(ValueError, match="Cannot decode image input"):
+        ImagePairLoader().load(b"broken", b"broken", "bad-upload")
+    before, after = ImagePairLoader().load(png_bytes(PIXELS), png_bytes(PIXELS), "retry")
+    np.testing.assert_array_equal(before.array, after.array)
