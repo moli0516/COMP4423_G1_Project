@@ -113,8 +113,8 @@ def make_archive(commit: str, payloads: dict[str, bytes]) -> bytes:
         "format_version": "1.0", "scope": "C_SOURCE_ONLY", "source_commit": commit,
         "real_inference": "NOT_RUN", "final_submission_ready": False,
         "files": {name: hashlib.sha256(data).hexdigest() for name, data in sorted(payloads.items())},
-        "limitations": ["Dataset, checkpoint, A/B approvals and individual reports not included.",
-                        "Synthetic demo only; real runtime/accuracy not certified."],
+        "limitations": ["The team distributes checkpoints, photos and individual reports separately.",
+                        "E0 inference requires the released checkpoint and vision dependencies."],
     }
     entries = {**payloads, MANIFEST: (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()}
     output = io.BytesIO()

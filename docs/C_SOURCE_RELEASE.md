@@ -1,11 +1,15 @@
 # C source release and local setup
 
-Scope: independently runnable C synthetic application plus existing B modules.
-This is not the final group submission or real-model acceptance. No dependency
-installation, model load, training, download or service termination is performed
-by the new checker/packager.
+The archive contains the DeskCheck application, A's E0 detector, B's pipeline
+and their source tests. The synthetic demo runs with the UI dependencies. For
+real photos, install the vision extra and place A's released `best.pt` under
+`artifacts/` in the extracted directory. Set `DESKCHECK_REAL_CONFIG` to the
+absolute path of `configs/app.json` before starting the UI. The application
+checks the checkpoint hash. [Real-model setup](REAL_MODEL_INTEGRATION.md)
 
-For macOS/Linux, see `docs/C_RELEASE_MAC_REVIEW_20261118.md` and run `bash "Start Jerry-C.sh"` after creating a fresh `.venv`. This launcher uses the same synthetic UI and performs read-only setup checks before starting the server. The shell script is part of the verified C-source ZIP; real-model acceptance still requires A's checkpoint and B's approved settings.
+On macOS/Linux, create a fresh `.venv` and run `bash "Start Jerry-C.sh"`
+from the extracted directory. The launcher checks the environment and starts
+the local UI. [macOS setup and launcher checks](C_RELEASE_MAC_REVIEW_20261118.md)
 
 ## Install a fresh copy
 
@@ -21,8 +25,8 @@ py -3.12 -m venv .venv
 The constraints record the existing tested Windows/Python 3.12 environment;
 availability on a new machine/index is not guaranteed. For Python 3.11/Linux,
 use platform-appropriate resolution (`python -m pip install -e '.[dev,ui]'`),
-then run the same checker and tests. Do not install `[vision]` or download weights
-for a synthetic demo. A must provide the accepted vision runtime and checkpoint.
+then run the same checker and tests. Choose the synthetic demo or select the
+local E0 checkpoint in the UI for real inference.
 
 The checker uses stdlib before dependency probes, verifies core/UI version ranges
 from `pyproject.toml` (using `packaging`, supplied by the existing dev/UI set), runs
@@ -62,17 +66,17 @@ unchanged. No new manual browser acceptance or real-photo result is implied.
 
 ## Build and verify without overwriting
 
-After verification and authorized commit, from a clean `Jerry-C` worktree:
+Build from a clean `Jerry-C` or `feat/c-e0-detector-integration` worktree.
 
 ```powershell
 .\.venv\Scripts\python.exe -B scripts/package_c_release.py --output runs/C_Source_NEW.zip
 .\.venv\Scripts\python.exe -B scripts/package_c_release.py --verify runs/C_Source_NEW.zip
 ```
 
-Builds use committed Git bytes, not local working-file contents. The explicit
-allowlist includes source/app/scripts/tests/docs, fake config, setup files and
-status; private photos, data, weights, environments, run outputs and reports are
-excluded. The archive has deterministic ordering/timestamps and per-file SHA256
+Builds use committed Git bytes. The archive includes source, scripts, tests,
+documentation, the synthetic and E0 app configs, and the public experiment
+configs. The team distributes weights and photos separately. The archive
+has deterministic ordering/timestamps and per-file SHA256
 plus full source commit. Repeat builds under the same compressor produce identical
 bytes. This is integrity checking, not cryptographic proof of authorship or safety.
 Dirty worktrees, symlinks, incomplete inventories and existing output names fail.
@@ -89,14 +93,11 @@ separately prepared prior version only after stopping your own UI; no reset, cle
 deletion or rewriting other branches is required. A failed output is never reused;
 diagnose it and choose a fresh name.
 
-## Actual course boundary
+## Course submission
 
-The supplied official brief pp.4,6 requires a local app using the submitted model
-and settings, and final `Project_Code_Group_N.zip` plus individual-report ZIP.
-`01_three_person_work_plan.pdf` / `05_required_api_list.pdf` are team proposals,
-not extra school mandates. The C archive is deliberately named differently: it
-does not contain A's data/checkpoint or individually authored reports. Do not upload
-it as the complete submission. The group lead has completed a fresh Mac checkout/venv and launcher smoke on
-`273d1007`, but that only validates the synthetic app, not trained-model use.
-Final A/B real-model handoff and acceptance, held-out evaluation, complete group
-submission and the lead's final PR documentation/checks gate are still required.
+The course brief (pp. 4 and 6) calls for a local app using the submitted model
+and settings, a group code ZIP and individual reports. This C source ZIP
+contains the code component. The group submission also needs the released
+weights, data and each student’s report. C has run E0 on the complete formal
+validation split. The held-out test remains available for the team's final
+evaluation. [Formal validation evidence](REAL_BATCH_EVALUATION.md#formal-v1-results)

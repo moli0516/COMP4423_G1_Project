@@ -90,6 +90,8 @@ On 22 November 2026 the two commands above ran against the frozen four-pair vali
 
 At event IoU 0.50, the evaluator matched 22 of 23 ground-truth events. Added and moved each had one true positive. Removed had one true positive and one false positive. Unchanged had 19 true positives and one false negative. Four-status macro-F1 was **0.9103** and change-only macro-F1 was **0.8889**. The release designates only G03P2 as an independent control, giving **0 alarms in 1 eligible pair**.
 
+On G01P1 the before-frame scissors scored 0.6526 at IoU 0.9687 against the annotated box. In an after-frame diagnostic pass at confidence 0.001, the scissors candidate still localized the object at IoU 0.9425 but scored only 0.1929, below the released cutoff of 0.20. A cup prediction at the same position scored 0.2152. B retained the separate true cup at 0.8781. The false removal therefore arose at the detector's class/score decision. The formal results above use the original thresholds.
+
 | Input | Measured SHA-256 |
 | --- | --- |
 | Formal v1 ZIP (356,090,127 bytes) | `0a49f3bc1308f1d5ac292cfb6274c17ef89abcc616dc21c1dd1eea0eeafa63f9` |

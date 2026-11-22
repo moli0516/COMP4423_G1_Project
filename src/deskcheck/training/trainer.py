@@ -64,6 +64,8 @@ def _check_dataset(dataset_yaml: Path) -> Path:
 
 def _run_dir(run_dir: Path) -> Path:
     """Create a unique run directory. Fails if it already has content."""
+    # The backend resolves relative project names against its global runs directory.
+    run_dir = run_dir.resolve()
     if run_dir.exists() and any(run_dir.iterdir()):
         raise TrainingError(
             f"run_dir already has content: {run_dir}. "

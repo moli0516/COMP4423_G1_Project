@@ -14,6 +14,24 @@ The command verifies the checkpoint and configuration digests, reads the trainin
 
 A's CLI at `45f0e0a` resolves its E2 template through `baseline_reference`. The earlier inheritance issue was fixed. The three standalone proposals use A's released E0 settings, including the tuned inference confidence of 0.20 and NMS IoU of 0.35. [A's trainer CLI](https://github.com/moli0516/COMP4423_G1_Project/blob/45f0e0a/scripts/train.py)
 
+## Set up the formal dataset on the training machine
+
+A's archived YOLO dataset YAML points to the absolute path on the original training machine. From the project checkout, run the following once on each machine, choosing a fresh output directory.
+
+```bash
+python scripts/prepare_e2_dataset.py --archive path/to/formal_dataset_v1.zip --output runs/formal_v1
+```
+
+The command verifies the v1 archive fingerprint and copies the released YOLO export bytes for the 28 training and eight validation images together with their labels. It creates a local `dataset.yaml` for A's trainer and a `source_receipt.json` with all 72 member hashes, the split manifest digest and both YAML digests. The held-out test images and labels stay in the archive. The verifier measured the archived YAML before substituting the Windows path. Its digest matches A's artifact at `e02cc0bc03b20cd1cb649cefd2bc3bb86e76c8a436ca5f5946481eeb1d95fe92`. [Formal v1 archive and split digests](REAL_BATCH_EVALUATION.md#formal-v1-results)
+
+For each selected training run, put the agreed initial `yolov8n.pt` in the working directory, record its SHA-256, and pass the local YAML to the shared CLI. For example, the batch-16 command on an allocated GPU is
+
+```bash
+python scripts/train.py --config runs/e2_preflight/e2_960_b16.json --dataset runs/formal_v1/dataset.yaml --run-dir runs/e2_960_b16
+```
+
+Use a separate fresh run directory per arm. On a different GPU, run the 640 control there with the same initialization, batch and environment as the 960 arm. Check the backend log for an out-of-memory retry or a change in effective batch before interpreting the comparison.
+
 ## Choose the comparison
 
 | Configuration | Image size | Micro-batch | Use |

@@ -12,6 +12,7 @@ from deskcheck.training.trainer import (
     _find_best_checkpoint,
     _read_actual_epochs_completed,
     _read_selected_epoch,
+    _run_dir,
 )
 
 
@@ -124,3 +125,15 @@ def test_read_selected_epoch_valid_returns_actual_epoch(tmp_path: Path) -> None:
         writer.writerow([6, 0.9])   # best
         writer.writerow([7, 0.7])
     assert _read_selected_epoch(save_dir) == 6
+
+
+def test_relative_run_dir_gives_backend_the_checked_absolute_project(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    chosen = Path("runs") / "resolution"
+    run = _run_dir(chosen)
+    # Ultralytics resolves relative project names against its own global runs_dir.
+    assert run.parent.is_absolute()
+    assert run == tmp_path / chosen
+    (run / "results.csv").write_text("previous run", encoding="utf-8")
+    with pytest.raises(TrainingError, match="already has content"):
+        _run_dir(chosen)
