@@ -218,6 +218,16 @@ def train(
 
     # Run training — all hyperparameters from config
     datetime.now(UTC)
+    # Ultralytics prefixes `project` with `runs/detect/` by default when
+    # the `runs_dir` setting is not overridden. Override it to run_dir.parent
+    # so results.csv and best.pt land at the exact requested run_dir
+    # (not at a nested runs/detect/runs/... path). C reproduced this on E2.
+    try:
+        from ultralytics import settings as _ul_settings
+        _ul_settings.update({"runs_dir": str(run_dir.parent.resolve())})
+    except (ImportError, AttributeError):
+        pass  # if settings API unavailable, project= below still gives best effort
+
     results = model.train(
         data=str(dataset_yaml),
         epochs=cfg.training["epochs"],
@@ -237,7 +247,7 @@ def train(
         mosaic=cfg.augmentation["mosaic"],
         scale=cfg.augmentation["scale"],
         # output location
-        project=str(run_dir.parent),
+        project=str(run_dir.parent.resolve()),
         name=run_dir.name,
         exist_ok=True,
         # misc

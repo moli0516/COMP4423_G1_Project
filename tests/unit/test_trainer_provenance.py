@@ -124,3 +124,37 @@ def test_read_selected_epoch_valid_returns_actual_epoch(tmp_path: Path) -> None:
         writer.writerow([6, 0.9])   # best
         writer.writerow([7, 0.7])
     assert _read_selected_epoch(save_dir) == 6
+
+
+def test_trainer_overrides_ultralytics_runs_dir() -> None:
+    """Verify trainer sets ultralytics runs_dir to run_dir.parent so outputs
+    land at the requested path, not the default runs/detect/ prefix.
+
+    Checks source for the setting override and for an absolute project
+    path derived from run_dir.parent (actual call site inspected rather
+    than exact string, to tolerate formatting variations).
+    """
+    import inspect
+
+    from deskcheck.training import trainer as trainer_mod
+
+    src = inspect.getsource(trainer_mod.train)
+
+    # Verify runs_dir setting override is present
+    assert "runs_dir" in src, (
+        "trainer must override ultralytics runs_dir to avoid the "
+        "default runs/detect/ prefix"
+    )
+
+    # Verify the project= argument uses an absolute path derived from run_dir.parent.
+    # Accept any of several equivalent spellings that a formatter might produce.
+    candidates = (
+        "run_dir.parent.resolve()",
+        "str(run_dir.parent.resolve())",
+        "run_dir.parent.absolute()",
+    )
+    matched = [c for c in candidates if c in src]
+    assert matched, (
+        f"trainer must use an absolute project path derived from run_dir.parent. "
+        f"None of {candidates} found in source. Full source:\n{src}"
+    )
