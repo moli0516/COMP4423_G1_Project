@@ -122,15 +122,82 @@ def test_predict_drops_unsupported_classes(tmp_path: Path) -> None:
     assert dets[0].class_id == 0
 
 
-def test_predict_empty_returns_empty_list(tmp_path: Path) -> None:
+def test_predict_valid_empty_returns_empty_list(tmp_path: Path) -> None:
+    """Valid empty: Results with a real Boxes object of length 0."""
+    class _EmptyBoxes:
+        def __len__(self):
+            return 0
+    class _EmptyResult:
+        boxes = _EmptyBoxes()
+        names = COCO_NAMES
+
     det = _make_detector(tmp_path)
     fake_model = MagicMock()
     fake_model.names = COCO_NAMES
-    fake_model.predict.return_value = [MagicMock(boxes=[])]
+    fake_model.predict.return_value = [_EmptyResult()]
 
     with patch.object(det, "_load_model", return_value=(fake_model, COCO_NAMES)):
         assert det.predict(_make_frame()) == []
 
+
+def test_predict_raises_on_none_results(tmp_path: Path) -> None:
+    """Malformed: results is None, not a list. TypeError (not RuntimeError)
+    because the return value has the wrong type."""
+    det = _make_detector(tmp_path)
+    fake_model = MagicMock()
+    fake_model.names = COCO_NAMES
+    fake_model.predict.return_value = None
+
+    with (
+        patch.object(det, "_load_model", return_value=(fake_model, COCO_NAMES)),
+        pytest.raises(TypeError, match="expected list of Results"),
+    ):
+        det.predict(_make_frame())
+
+def test_predict_raises_on_wrong_length_results(tmp_path: Path) -> None:
+    """Malformed: list length != 1 for a single image."""
+    det = _make_detector(tmp_path)
+    fake_model = MagicMock()
+    fake_model.names = COCO_NAMES
+    fake_model.predict.return_value = [
+        MagicMock(boxes=MagicMock()),
+        MagicMock(boxes=MagicMock()),
+    ]
+
+    with (
+        patch.object(det, "_load_model", return_value=(fake_model, COCO_NAMES)),
+        pytest.raises(RuntimeError, match="expected exactly 1"),
+    ):
+        det.predict(_make_frame())
+
+def test_predict_raises_on_missing_boxes_attr(tmp_path: Path) -> None:
+    """Malformed: Results has no .boxes attribute."""
+    det = _make_detector(tmp_path)
+    fake_model = MagicMock()
+    fake_model.names = COCO_NAMES
+    result_no_boxes = object()
+    fake_model.predict.return_value = [result_no_boxes]
+
+    with (
+        patch.object(det, "_load_model", return_value=(fake_model, COCO_NAMES)),
+        pytest.raises(RuntimeError, match="missing .boxes. attribute"),
+    ):
+        det.predict(_make_frame())
+
+def test_predict_raises_on_boxes_none(tmp_path: Path) -> None:
+    """Malformed: Result.boxes is None (distinct from valid empty)."""
+    det = _make_detector(tmp_path)
+    fake_model = MagicMock()
+    fake_model.names = COCO_NAMES
+    result = MagicMock()
+    result.boxes = None
+    fake_model.predict.return_value = [result]
+
+    with (
+        patch.object(det, "_load_model", return_value=(fake_model, COCO_NAMES)),
+        pytest.raises(RuntimeError, match="boxes is None"),
+    ):
+        det.predict(_make_frame())
 
 def test_predict_sorts_by_class_then_confidence(tmp_path: Path) -> None:
     det = _make_detector(tmp_path)

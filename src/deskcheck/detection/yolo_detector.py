@@ -17,6 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+
 from deskcheck.detection.object_detector import ObjectDetector
 from deskcheck.domain.bounding_box import BoundingBox
 from deskcheck.domain.detection import Detection
@@ -110,24 +112,55 @@ class YoloDetector(ObjectDetector):
 
         # Do not mutate caller's array — pass a copy to ultralytics.
         # Ultralytics may resize internally but must not modify in place.
-        arr = image.array.copy()
+        image.array.copy()
 
         # Run inference. Ultralytics returns boxes in the ORIGINAL input
         # image coordinate system (it undoes its own letterbox internally).
+        # Ultralytics treats ndarray input as BGR (OpenCV convention). Our
+        # ImageFrame.array is canonical RGB. Explicitly reverse the channel
+        # axis before predict, with ascontiguousarray so downstream C++
+        # extensions get a contiguous buffer. Caller's array is not modified.
+        bgr = np.ascontiguousarray(image.array[:, :, ::-1])
+
         results = model.predict(
-            source=arr,
+            source=bgr,
             imgsz=self._config.image_size,
             conf=self._config.confidence_threshold,
             iou=self._config.nms_iou_threshold,
             device=self._config.device,
             verbose=False,
         )
-        if not results:
-            return []
+
+        # Ultralytics contract (v8.x): predict() returns a list of Results
+        # — one per input image. For single-image source, list length must
+        # be exactly 1. A different type/length is a backend fault, not a
+        # valid empty result.
+        if not isinstance(results, (list, tuple)):
+            raise TypeError(
+                f"YOLO predict() returned {type(results).__name__}; "
+                f"expected list of Results (one per image)."
+            )
+        if len(results) != 1:
+            raise RuntimeError(
+                f"YOLO predict() returned {len(results)} Results for one image; "
+                f"expected exactly 1. Single-image inference contract violated."
+            )
+
         result = results[0]
-        boxes = getattr(result, "boxes", None)
-        if boxes is None or len(boxes) == 0:
-            return []
+        # Valid empty: Results has a real Boxes object with len()==0.
+        # Missing .boxes attribute or boxes=None indicates malformed output.
+        if not hasattr(result, "boxes"):
+            raise RuntimeError(
+                "YOLO Results missing 'boxes' attribute — malformed backend output."
+            )
+        boxes = result.boxes
+        if boxes is None:
+            raise RuntimeError(
+                "YOLO Results.boxes is None — malformed output "
+                "(valid empty results have Boxes with len()==0, not None)."
+            )
+        if len(boxes) == 0:
+            return []  # valid empty detection
 
         detections: list[Detection] = []
         for idx, box in enumerate(boxes):
