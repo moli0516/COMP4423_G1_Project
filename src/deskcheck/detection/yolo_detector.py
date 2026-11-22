@@ -121,11 +121,9 @@ class YoloDetector(ObjectDetector):
 
         model, names = self._load_model()
 
-        # Ultralytics takes BGR for NumPy sources. Keep the shared RGB frame intact.
-        bgr = image.array[:, :, ::-1].copy()
+        # The backend takes contiguous BGR. Own the buffer even for a strided RGB view.
+        bgr = image.array[:, :, ::-1].copy(order="C")
 
-        # Run inference. Ultralytics returns boxes in the ORIGINAL input
-        # image coordinate system (it undoes its own letterbox internally).
         results = model.predict(
             source=bgr,
             imgsz=self._config.image_size,
@@ -134,13 +132,24 @@ class YoloDetector(ObjectDetector):
             device=self._config.device,
             verbose=False,
         )
+        if not isinstance(results, (list, tuple)):
+            raise TypeError(
+                f"YOLO predict() returned {type(results).__name__}; expected list of Results."
+            )
         if len(results) != 1:
-            raise ValueError("Expected one detector result per shared frame")
+            raise RuntimeError(
+                f"YOLO predict() returned {len(results)} Results for one image; expected exactly 1."
+            )
         result = results[0]
-        if tuple(result.orig_shape) != (image.height, image.width):
-            raise ValueError("Detector geometry disagrees with the oriented input")
+        if not hasattr(result, "boxes"):
+            raise RuntimeError("YOLO Results missing 'boxes' attribute.")
         boxes = result.boxes
         if boxes is None:
+            raise RuntimeError("YOLO Results.boxes is None; expected a detection Boxes object.")
+        shape = getattr(result, "orig_shape", None)
+        if shape is None or tuple(shape) != (image.height, image.width):
+            raise ValueError("Detector geometry disagrees with the oriented input")
+        if len(boxes) == 0:
             return []
 
         detections: list[Detection] = []
