@@ -1,51 +1,50 @@
-# Part C resolution experiment protocol
+# C’s 640 and 960 resolution experiment
 
-A released the E0 checkpoint, formal v1 dataset and shared trainer at `45f0e0a`. C reproduced E0 application results on the full validation split and exercised the three candidate training configurations through A's trainer. E2 training and GPU measurements are pending. [Configuration receipts and comparison choices](C_E2_DECISION_BRIEF_20261118.md)
+C trained a fresh 640-pixel control and a 960-pixel candidate on the same machine from the same YOLOv8n initialization. A's released E0 remains the production checkpoint. A owns the detector and common trainer, B owns the event rules and evaluation, and C ran the comparison through those existing interfaces.
 
-## Question and comparison
+## Matched CPU result
 
-Does moving from E0 **640 × 640** to E2 **960 × 960** model input
-resolution improve small-object detection, and at what cost in inference
-time and training memory? E0 used 640. The proposed E2 run uses 960.
+| Formal v1 validation | 640 | 960 |
+| --- | ---: | ---: |
+| Effective training micro-batch | 2 | 2 |
+| Completed epochs (selected epoch) | 33 (13) | 28 (8) |
+| Detector mAP50 | 0.99500 | 0.99500 |
+| Detector mAP50–95 | 0.82783 | 0.86614 |
+| Application event macro-F1 | 0.82018 | 1.00000 |
+| Change-only macro-F1 | 0.77778 | 1.00000 |
+| Correct localized events | 21 / 23 | 23 / 23 |
+| Alarms on eligible independent controls | 0 / 1 | 0 / 1 |
+| Training elapsed, including final validation and output | 248.8 s | 328.7 s |
+| Median batch-one prediction from decoded RGB | 78.3 ms | 107.3 ms |
 
-| Component | E0 reference | E2 proposal | Control rule |
-|---|---|---|---|
-| Input size | 640 | 960 | Treatment variable |
-| Dataset release/splits | A's v1 | Identical hash & groups | No cross-split leakage |
-| Model/init | A's YOLOv8n + source weights | Same verified initialization | A pins model/version |
-| Data order / train seed | A's 42 | Same seed (or paired independent seeds) | Compare same conditions |
-| Training optimizer/lr/epochs/augmentations | A's E0 config | Same effective values | No E2-specific tuning from test |
-| Batch size | 16 in released E0 | 16 if feasible | If 960 requires batch 8, compare it with a 640/batch-8 control on the same hardware |
-| Validation | `val` | `val` | Select/checkpoint only from validation |
-| Test | Held out | Held out | Final evaluation only after full freeze |
-| Reported outputs | Detector mAP, per-class results | Same | A owns scorer and threshold protocol |
-| Cost metrics | Latency, memory, training wall-time | Same | Same hardware, warmup and runs |
+At 640 the application reported an added book in G01P1 and a moved book in G01P2. Both books were annotated unchanged. At 960 both classifications agreed with the annotations. On these eight images, detector mAP50–95 rose by 0.03831 while median CPU prediction took 29.0 ms longer. The original-pixel bounding boxes of all 44 annotated objects exceed the COCO large-area threshold. This split supplies no direct evidence of an improvement on small objects. A single training seed, two validation capture groups and one eligible control limit generalization.
+
+| Class | Validation boxes | 640 AP50–95 | 960 AP50–95 |
+| --- | ---: | ---: | ---: |
+| Bottle | 8 | 0.8101 | 0.8326 |
+| Cup | 5 | 0.7195 | 0.8075 |
+| Keyboard | 8 | 0.8162 | 0.8270 |
+| Mouse | 8 | 0.8464 | 0.8462 |
+| Book | 8 | 0.9558 | 0.9799 |
+| Scissors | 7 | 0.8190 | 0.9036 |
 
 ## Training and evaluation
 
-1. Use A's released dataset and trainer. Record the physical GPU and SHA-256 of the original `yolov8n.pt` initialization. The trained E0 output is kept for inference.
-2. Agree on the GPU allocation and a matched batch size. If batch size changes along with resolution, report both changes.
+Both CPU arms ran the shared trainer on an AMD EPYC 9V74 using Python 3.12.14, Torch 2.11.0+cpu and Ultralytics 8.4.215. They used the E0 augmentation settings, SGD, learning rate 0.01, weight decay 0.0005, seed 42, early-stopping patience 20 and a 100-epoch cap. Each arm started independently from the same pretrained weights. The historical released E0 trained at batch 16 and is documented [separately](REAL_BATCH_EVALUATION.md#formal-v1-results).
 
-3. Run E0/E2 using the **same trainer** on the **same data and hardware**,
-   each writing a fresh run directory with immutable settings/usage receipts.
-   Record seeds, checkpoint hash, epoch count, data/split hash, actual settings,
-   training time, wall-clock and peak memory. Never overwrite E0.
-4. On validation, record mAP@0.5, mAP@[0.5:0.95], per-class AP (especially
-   small objects), paired failure examples, and inference latency (identical
-   warmed-up hardware / repetition protocol). If tuning is allowed, do it
-   only on validation; disclose comparisons and budget.
-5. Freeze the settings and chosen checkpoint **before test**. Run the full
-   held-out test once for reporting. B handles event/no-change metrics and
-   C's app must use the matching model/thresholds, not alternate defaults.
-6. Include honest nulls for missing timing/memory metrics; no synthetic
-   `FakeColorDetector` output, stub metric or missing checkpoint is evidence
-   of the E2 hypothesis.
+The frozen export contains 28 training and eight validation JPEGs with 36 label files. C verified all source and effective file hashes. The backend re-encoded 28 training JPEGs on the working copy. The eight validation JPEGs and all labels retained their released bytes. [Dataset preparation and verification commands](C_E2_DECISION_BRIEF_20261118.md#set-up-the-formal-dataset-on-the-training-machine)
 
-B's movement threshold is frozen at 0.02152951369355096. The completed four-pair E0 event evaluation is in [the formal validation results](REAL_BATCH_EVALUATION.md#formal-v1-results).
+| CPU study input or output | SHA-256 |
+| --- | --- |
+| Starting YOLOv8n weights, both sizes | `f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36` |
+| Effective training and validation file inventory | `2b7412542f8e447e57fe9ee0da4f9f39e0a68d12e9ce1bd0b6de91fe4400e6b2` |
+| Selected 640 checkpoint | `36170c7d9d02999ea86734b00967e33e960410a4b87bf2474ffe7d5beffcbd88` |
+| Selected 960 checkpoint | `4e7d8f57fe60498586c14ad36e51f8e7067c0b7581237bbe859f9552998da9a2` |
 
-## Report evidence to preserve after execution
+C evaluated each selected checkpoint at its training resolution with the native validator on the same eight images. AP used confidence 0.001 and NMS IoU 0.70. Application events used the eight original photographs with confidence 0.20, NMS IoU 0.35 and B’s movement threshold of 0.02152951369355096. Each timing series contains 24 predictions with model order alternating, after one warm-up per image and model. Decoding, display and serialization are outside the timed interval. CPU elapsed times include execution on a shared host.
 
-E0/E2 resolved configs + SHA-256, dataset/split manifest SHA, scripts/commit,
-trainer dependencies, seed, model checkpoints and hashes, per-class detector AP
-and val/test split, time/memory unit/measurement method, paired examples,
-negative or inconclusive results, and a personally written interpretation.
+Run the scorer with both output directories, their receipts and the prepared dataset. It checks effective batches and checkpoint arguments, initialization and dataset hashes, trainer identity, runtime and hardware provenance before writing a fresh comparison. The private evidence package contains the selected checkpoints and receipts. Keep the held-out test split reserved for the team’s final freeze.
+
+```bash
+python scripts/score_c_resolution_pair.py --control runs/640 --candidate runs/960 --dataset-root runs/formal_v1_work --device cpu --output runs/validation_comparison
+```

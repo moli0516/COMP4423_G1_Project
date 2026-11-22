@@ -62,9 +62,11 @@ marked `C_SOURCE_ONLY`, **not a complete Canvas submission**. See
 pointers; each student writes and verifies their own report.
 
 ## Ownership
-- A: data capture/audit/split/export, detector and training.
-- B: filtering, matching, change rules and evaluation.
-- C: configuration, comparison service, visualization, local UI and release.
+
+- A owns data capture, audit, split and export, the detector, the shared trainer and the E0 baseline.
+- B owns filtering, matching, change rules and evaluation.
+- C owns application configuration, the comparison service, visualization, UI, CLI, release packaging and the 640/960 resolution experiment using A's trainer. [C's experiment protocol](docs/C_E2_RESOLUTION_PROTOCOL.md)
+
 All members help collect/review data and write their own reports.
 
 ## Design
