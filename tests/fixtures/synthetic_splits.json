@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "seed": 42,
+  "dataset_release": "v1",
+  "splits": {
+    "train": [
+      "p_mixed_1",
+      "p_mixed_2",
+      "p_mixed_3",
+      "p_shared_1",
+      "p_shared_2",
+      "pg003_1",
+      "pg003_2"
+    ],
+    "val": [
+      "pg001_1",
+      "pg001_2"
+    ],
+    "test": [
+      "pg002_1",
+      "pg002_2"
+    ]
+  },
+  "coverage": {
+    "classes_per_split": {
+      "train": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "val": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "test": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "statuses_per_split": {
+      "train": [
+        "added",
+        "moved",
+        "removed",
+        "unchanged"
+      ],
+      "val": [
+        "added",
+        "moved",
+        "removed",
+        "unchanged"
+      ],
+      "test": [
+        "added",
+        "moved",
+        "removed",
+        "unchanged"
+      ]
+    },
+    "independent_no_change_pairs": {
+      "train": 1,
+      "val": 1,
+      "test": 1
+    }
+  }
+}
