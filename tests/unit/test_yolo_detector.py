@@ -27,7 +27,7 @@ COCO_NAMES = {
 
 
 class _FakeBox:
-    def __init__(self, cls: int, conf: float, xyxy: list[float]):
+    def __init__(self, cls: float, conf: float, xyxy: list[float]):
         self.cls = [MagicMock(item=lambda v=cls: float(v))]
         self.conf = [MagicMock(item=lambda v=conf: float(v))]
         self.xyxy = [MagicMock(tolist=lambda xy=xyxy: list(xy))]
@@ -121,6 +121,19 @@ def test_predict_drops_unsupported_classes(tmp_path: Path) -> None:
 
     assert len(dets) == 1
     assert dets[0].class_id == 0
+
+
+@pytest.mark.parametrize("class_id", [0.9, -0.9, float("nan"), float("inf"), float("-inf")])
+def test_predict_rejects_malformed_backend_class_id(tmp_path: Path, class_id: float) -> None:
+    det = _make_detector(tmp_path)
+    model = MagicMock()
+    model.predict.return_value = [_FakeResults([_FakeBox(class_id, 0.9, [0, 0, 50, 50])])]
+
+    with (
+        patch.object(det, "_load_model", return_value=(model, {0: "bottle"})),
+        pytest.raises(ValueError, match="class ID"),
+    ):
+        det.predict(_make_frame())
 
 
 def test_predict_valid_empty_returns_empty_list(tmp_path: Path) -> None:

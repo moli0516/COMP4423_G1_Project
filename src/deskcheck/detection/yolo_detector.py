@@ -154,7 +154,11 @@ class YoloDetector(ObjectDetector):
 
         detections: list[Detection] = []
         for idx, box in enumerate(boxes):
-            class_id_backend = int(box.cls[0].item())
+            class_id_backend = box.cls[0].item()
+            if isinstance(class_id_backend, float) and class_id_backend.is_integer():
+                class_id_backend = int(class_id_backend)
+            if type(class_id_backend) is not int:
+                raise ValueError("Detector class ID must be a finite integer")
             backend_name = names.get(class_id_backend, "")
             canonical_id = self._canonical_class_id(backend_name)
             if canonical_id is None:

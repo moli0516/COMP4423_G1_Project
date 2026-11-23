@@ -88,7 +88,7 @@ class RealIntegration(unittest.TestCase):
         Image.fromarray(after).save(a)
         with model.installed():
             result = service.compare(b, a, "real-test")
-        model.constructor.assert_called_once_with(str(self.weight))
+        model.constructor.assert_called_once_with(str(self.weight.resolve()))
         self.assertEqual(
             [(r["class_id"], r["status"]) for r in result["records"]],
             [(0, "moved"), (1, "unchanged")],
