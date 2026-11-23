@@ -244,3 +244,63 @@ def test_predict_does_not_mutate_input_array(tmp_path: Path) -> None:
         det.predict(frame)
 
     assert np.array_equal(frame.array, original)
+
+
+def test_predict_passes_bgr_source_to_ultralytics(tmp_path: Path) -> None:
+    """Ultralytics treats ndarray source as BGR. ImageFrame is RGB, so the
+    adapter must reverse channels before predict. Regression guards the
+    canonical contract: given RGB input, ultralytics receives BGR."""
+    import numpy as np
+
+    det = _make_detector(tmp_path)
+    fake_model = MagicMock()
+    fake_model.names = COCO_NAMES
+    fake_model.predict.return_value = [MagicMock(boxes=[])]
+
+    captured = {}
+    def _capture_predict(**kwargs):
+        captured["source"] = kwargs.get("source")
+        return [MagicMock(boxes=[])]
+    fake_model.predict.side_effect = _capture_predict
+
+    # Asymmetric R/B values so a channel swap is detectable
+    h, w = 4, 6
+    arr = np.zeros((h, w, 3), dtype=np.uint8)
+    arr[:, :, 0] = 200  # R
+    arr[:, :, 2] = 50   # B
+    frame = ImageFrame(array=arr, width=w, height=h, source_path=None)
+
+    with patch.object(det, "_load_model", return_value=(fake_model, COCO_NAMES)):
+        det.predict(frame)
+
+    source = captured["source"]
+    assert isinstance(source, np.ndarray), \
+        f"expected ndarray source, got {type(source).__name__}"
+    # Source should be BGR: channel 0 = 50 (B), channel 2 = 200 (R)
+    assert int(source[0, 0, 0]) == 50, "channel 0 should be B (originally 50)"
+    assert int(source[0, 0, 2]) == 200, "channel 2 should be R (originally 200)"
+
+
+def test_load_model_does_not_cache_partial_on_validation_failure(tmp_path: Path) -> None:
+    """If names validation fails, no partial state is cached — a retry must
+    not reuse a model with _names=None."""
+    det = _make_detector(tmp_path)
+
+    # Fake model with an invalid names map (only bottle; missing 5 required)
+    broken_model = MagicMock()
+    broken_model.names = {0: "bottle"}
+
+    # Patch at the module's expected import location. Detector does
+    # `from ultralytics import YOLO` inside _load_model, so patch
+    # ultralytics.YOLO directly.
+    with (
+        patch("ultralytics.YOLO", return_value=broken_model),
+        pytest.raises(ValueError, match="required class"),
+    ):
+        # Force load — do not go through predict() (which has its own
+        # contract checks that could obscure the validation error)
+        det._load_model()
+
+    # Partial cache must NOT have been set
+    assert det._model is None, "model must not be cached after names validation failure"
+    assert det._names is None, "names must remain None after validation failure"

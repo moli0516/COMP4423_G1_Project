@@ -72,7 +72,12 @@ class YoloDetector(ObjectDetector):
             raise ValueError(f"image_size must be positive, got {cfg.image_size}")
 
     def _load_model(self):
-        """Return (model, names_map). Cached after first call."""
+        """Return (model, names_map). Cached after first call.
+
+        Validates the checkpoint's class map BEFORE caching any state, so a
+        validation failure cannot leave self._model set with self._names=None
+        (partial-cache poisoning).
+        """
         if self._model is not None:
             return self._model, self._names
         try:
@@ -83,15 +88,46 @@ class YoloDetector(ObjectDetector):
                 "Run: pip install -e '.[vision]'"
             ) from exc
 
-        self._model = YOLO(str(self._config.checkpoint_path))
+        # Load into a local first — do NOT cache until validation passes.
+        model = YOLO(str(self._config.checkpoint_path))
 
-        model_names = getattr(self._model, "names", None)
+        model_names = getattr(model, "names", None)
         if model_names is None:
             raise RuntimeError(
                 "loaded model does not expose a 'names' attribute; "
                 "cannot perform canonical class mapping."
             )
-        self._names = dict(model_names)
+
+        # Accept either Mapping or list/tuple class-name maps
+        from collections.abc import Mapping
+        if isinstance(model_names, Mapping):
+            names = dict(model_names)
+        elif isinstance(model_names, (list, tuple)):
+            names = dict(enumerate(model_names))
+        else:
+            raise TypeError(
+                "Checkpoint 'names' must be a Mapping or list/tuple of class names"
+            )
+
+        # Validate structure: integer keys, string values
+        for k, v in names.items():
+            if type(k) is not int or not isinstance(v, str):
+                raise ValueError(
+                    "Checkpoint class map must map integer IDs to string names"
+                )
+
+        # Validate coverage: every required class must appear exactly once
+        labels = list(names.values())
+        for required in self._config.class_names:
+            if labels.count(required) != 1:
+                raise ValueError(
+                    f"Checkpoint must map required class {required!r} exactly once; "
+                    f"found {labels.count(required)} occurrence(s)"
+                )
+
+        # All validation passed — now it's safe to cache
+        self._model = model
+        self._names = names
         return self._model, self._names
 
     def _canonical_class_id(self, backend_name: str) -> int | None:
@@ -109,10 +145,6 @@ class YoloDetector(ObjectDetector):
             )
 
         model, names = self._load_model()
-
-        # Do not mutate caller's array — pass a copy to ultralytics.
-        # Ultralytics may resize internally but must not modify in place.
-        image.array.copy()
 
         # Run inference. Ultralytics returns boxes in the ORIGINAL input
         # image coordinate system (it undoes its own letterbox internally).
