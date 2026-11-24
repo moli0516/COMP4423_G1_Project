@@ -282,25 +282,33 @@ def test_predict_passes_bgr_source_to_ultralytics(tmp_path: Path) -> None:
 
 
 def test_load_model_does_not_cache_partial_on_validation_failure(tmp_path: Path) -> None:
-    """If names validation fails, no partial state is cached — a retry must
-    not reuse a model with _names=None."""
+    """Self-contained: inject a stub ultralytics module so this test runs
+    even in a dev-only environment without the vision extra installed.
+    If names validation fails, no partial state is cached."""
+    import sys
+    import types
+
     det = _make_detector(tmp_path)
 
-    # Fake model with an invalid names map (only bottle; missing 5 required)
     broken_model = MagicMock()
-    broken_model.names = {0: "bottle"}
+    broken_model.names = {0: "bottle"}  # only 1 class; 5 required missing
 
-    # Patch at the module's expected import location. Detector does
-    # `from ultralytics import YOLO` inside _load_model, so patch
-    # ultralytics.YOLO directly.
-    with (
-        patch("ultralytics.YOLO", return_value=broken_model),
-        pytest.raises(ValueError, match="required class"),
-    ):
-        # Force load — do not go through predict() (which has its own
-        # contract checks that could obscure the validation error)
-        det._load_model()
+    # Build a stub ultralytics module — no dependency on real ultralytics
+    stub = types.ModuleType("ultralytics")
+    stub.YOLO = lambda *args, **kwargs: broken_model
+    stub.__version__ = "stub"
 
-    # Partial cache must NOT have been set
-    assert det._model is None, "model must not be cached after names validation failure"
+    saved = sys.modules.get("ultralytics")
+    try:
+        sys.modules["ultralytics"] = stub
+        with pytest.raises(ValueError, match="required class"):
+            det._load_model()
+    finally:
+        if saved is not None:
+            sys.modules["ultralytics"] = saved
+        else:
+            sys.modules.pop("ultralytics", None)
+
+    # No partial cache after failure
+    assert det._model is None, "model must not be cached after validation failure"
     assert det._names is None, "names must remain None after validation failure"
