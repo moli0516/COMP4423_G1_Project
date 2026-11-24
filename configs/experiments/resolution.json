@@ -1,0 +1,25 @@
+{
+  "experiment_id": "E2",
+  "owner": "C",
+  "hypothesis": "Higher input resolution improves small-object detection at an acceptable inference-time cost.",
+  "baseline_reference": "configs/experiments/baseline.json",
+  "changed_factor": "preprocessing.image_size",
+  "data": "inherit",
+  "model": "inherit",
+  "preprocessing": {
+    "image_size": 960,
+    "color_mode": "RGB",
+    "letterbox": true
+  },
+  "augmentation": "inherit",
+  "training": {
+    "batch_size": 8,
+    "notes": "Reduced batch size to fit the larger input; documented limitation of this comparison."
+  },
+  "validation": "inherit",
+  "inference": "inherit",
+  "outputs": {
+    "run_dir": "runs/experiments/E2_resolution"
+  },
+  "notes": "STUB \u2014 C owns. Fill in after inspecting the pilot dataset. Must change only input resolution (+ required batch size adjustment) relative to E0."
+}

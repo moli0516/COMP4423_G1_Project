@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -57,10 +58,7 @@ class RealUiTests(unittest.TestCase):
                 app.file_uploader[0].set_value(("before.png", before, "image/png"))
                 app.file_uploader[1].set_value(("after.png", after, "image/png")).run()
                 self.assertFalse(app.button[0].disabled)
-                with patch(
-                    "deskcheck.detection.ultralytics_detector.UltralyticsDetector",
-                    side_effect=RuntimeError("test model intentionally absent"),
-                ):
+                with patch.dict(sys.modules, {"ultralytics": None}):
                     app.button[0].click().run()
                 self.assertEqual(len(app.exception), 0)
                 self.assertGreater(len(app.error), 0)

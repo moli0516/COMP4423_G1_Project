@@ -1,5 +1,9 @@
 # Jerry-C sprint status
 
+C integrated A's released E0 detector in PR #10. All four formal validation pairs produced the same 23 application records in the UI, CLI and batch runner. [E0 results](docs/REAL_BATCH_EVALUATION.md#formal-v1-results) · [C's 640 and 960 experiment](docs/C_E2_RESOLUTION_PROTOCOL.md)
+
+## Historical November 12–18 sprint notes
+
 Goal: a locally runnable C application with consistent visual/export evidence and
 reproducible setup/release. Reader: C user and A/B reviewers. No substitute detector,
 trainer, invented annotations, or claim of real inference.

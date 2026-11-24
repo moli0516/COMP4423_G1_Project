@@ -1,13 +1,14 @@
-"""Owner C: fake-first orchestration through the actual upstream B modules."""
+"""Compare canonical frames through the selected detector and B's change pipeline."""
 
 from pathlib import Path
 
 from deskcheck.application.app_config import CLASS_NAMES, AppConfig
-from deskcheck.application.image_frame import ImageFrame
 from deskcheck.application.image_pair_loader import ImagePairLoader
 from deskcheck.application.real_settings import RealSettings
 from deskcheck.changes.change_analyzer import ChangeAnalyzer
 from deskcheck.detection.detection_filter import DetectionFilter
+from deskcheck.detection.yolo_detector import YoloConfig, YoloDetector
+from deskcheck.domain.image_frame import ImageFrame
 from deskcheck.matching.object_matcher import ObjectMatcher
 
 
@@ -24,6 +25,21 @@ class ComparisonService:
         self._matcher = ObjectMatcher()
         self._analyzer = ChangeAnalyzer(config.movement_threshold)
 
+    @classmethod
+    def for_real(cls, settings: RealSettings) -> "ComparisonService":
+        """Build the shared CPU inference path from the hash-validated app config."""
+        if not isinstance(settings, RealSettings):
+            raise TypeError("Real inference requires validated RealSettings")
+        detector = YoloDetector(YoloConfig(
+            checkpoint_path=settings.checkpoint_path,
+            confidence_threshold=settings.confidence_threshold,
+            nms_iou_threshold=settings.nms_iou_threshold,
+            image_size=settings.imgsz,
+            class_names=CLASS_NAMES,
+            device="cpu",
+        ))
+        return cls(config=settings, detector=detector)
+
     @property
     def config(self) -> AppConfig | RealSettings:
         return self._config
@@ -37,7 +53,7 @@ class ComparisonService:
         if not isinstance(pair_id, str) or not pair_id.strip():
             raise ValueError("pair_id must be a nonempty string")
         if not all(isinstance(frame, ImageFrame) for frame in (before, after)):
-            raise TypeError("compare_frames requires C-local ImageFrame values")
+            raise TypeError("compare_frames requires canonical ImageFrame values")
         if (before.width, before.height) != (after.width, after.height):
             raise ValueError("Frame dimensions disagree")
         size = (before.width, before.height)

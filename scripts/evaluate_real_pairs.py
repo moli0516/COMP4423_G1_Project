@@ -15,7 +15,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from deskcheck.application.comparison_service import ComparisonService
 from deskcheck.application.real_settings import RealSettings
-from deskcheck.detection.ultralytics_detector import UltralyticsDetector
 from deskcheck.evaluation.evaluation_runner import EvaluationRunner
 
 REQUIRED = {
@@ -117,8 +116,7 @@ def main() -> int:
     try:
         manifest = load_manifest(args.manifest.resolve(strict=True))
         settings = RealSettings.load(args.config)
-        detector = UltralyticsDetector(settings)
-        service = ComparisonService(config=settings, detector=detector)
+        service = ComparisonService.for_real(settings)
         provenance = {
             "mode": "real",
             "config_sha256": settings.config_sha256,

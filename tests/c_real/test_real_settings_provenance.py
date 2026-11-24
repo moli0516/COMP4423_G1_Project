@@ -7,11 +7,8 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from test_yolo_real_pipeline import Model
-
 from deskcheck.application.comparison_service import ComparisonService
 from deskcheck.application.real_settings import RealSettings
-from deskcheck.detection.ultralytics_detector import UltralyticsDetector
 
 
 class RealSettingsProvenanceTests(unittest.TestCase):
@@ -76,15 +73,17 @@ class RealSettingsProvenanceTests(unittest.TestCase):
             "imgsz": settings.imgsz,
             "rules_version": settings.rules_version,
             "mode": settings.mode,
+            "_source_bytes": self.config_path.read_bytes(),
+            "_source_path": self.config_path.resolve(),
         }
-        with self.assertRaises((TypeError, ValueError)):
+        with self.assertRaisesRegex(ValueError, "Effective confidence_threshold"):
             RealSettings(**payload)
 
     def test_real_pipeline_cannot_be_built_from_replaced_settings(self):
         settings = RealSettings.load(self.config_path)
         with self.assertRaises((TypeError, ValueError)):
             bad = replace(settings, movement_threshold=0.7)
-            ComparisonService(config=bad, detector=UltralyticsDetector(bad, model=Model()))
+            ComparisonService.for_real(bad)
 
     def test_direct_constructor_rejects_invalid_rehashed_source_values(self):
         settings = RealSettings.load(self.config_path)

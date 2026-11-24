@@ -1,4 +1,6 @@
-# Jerry-C — Part C completion and handoff
+# Jerry-C handoff snapshot from 12 November 2026
+
+This page records the synthetic-only milestone on PR #9. C's later integration uses A's released E0 detector. [Real-model acceptance](REAL_MODEL_INTEGRATION.md) · [Formal validation](REAL_BATCH_EVALUATION.md#formal-v1-results) · [C's resolution experiment](C_E2_RESOLUTION_PROTOCOL.md)
 
 **Updated:** 2026-11-12 (HKT); see `STATUS_BOARD.md` and `C_SOURCE_RELEASE.md`.
 

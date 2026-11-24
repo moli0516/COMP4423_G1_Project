@@ -254,16 +254,22 @@ class CApplicationTests(unittest.TestCase):
                 output,
             )
 
-    def test_frame_owns_pixels_and_has_no_source_identity(self):
-        from deskcheck.application.image_frame import ImageFrame
+    def test_loader_delivers_an_immutable_snapshot_and_optional_provenance(self):
+        from deskcheck.application.image_pair_loader import ImagePairLoader
+        from deskcheck.domain.image_frame import ImageFrame
 
-        pixels = np.zeros((8, 9, 3), dtype=np.uint8)
-        frame = ImageFrame(pixels)
-        pixels[:] = 255
-        self.assertFalse(frame.array.any())
-        self.assertFalse(hasattr(frame, "source_path"))
+        path = self.image("source.png", np.zeros((8, 9, 3), dtype=np.uint8))
+        disk, upload = ImagePairLoader().load(path, path.read_bytes(), "snapshot")
+        path.unlink()
+        self.assertIs(type(disk), ImageFrame)
+        self.assertEqual(disk.source_path, path)
+        self.assertIsNone(upload.source_path)
+        editable = disk.copy()
+        editable.array[:] = 255
+        self.assertFalse(disk.array.any())
+        np.testing.assert_array_equal(disk.array, upload.array)
         with self.assertRaises(ValueError):
-            frame.array[0, 0] = [1, 2, 3]
+            disk.array.setflags(write=True)
 
     def test_service_accepts_uploaded_bytes_and_rejects_bad_pair_id(self):
         service = self.setup_pipeline()
@@ -309,13 +315,6 @@ class CApplicationTests(unittest.TestCase):
         self.assertEqual({p.name: p.read_bytes() for p in output.iterdir()}, saved)
         with Image.open(output / "annotated_before.png") as image:
             self.assertEqual(image.size, (160, 120))
-
-    def test_frame_cannot_restore_writeability(self):
-        from deskcheck.application.image_frame import ImageFrame
-
-        frame = ImageFrame(np.zeros((8, 9, 3), dtype=np.uint8))
-        with self.assertRaises(ValueError):
-            frame.array.setflags(write=True)
 
     def test_configuration_changes_cannot_keep_old_provenance(self):
         from dataclasses import replace

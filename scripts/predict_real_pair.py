@@ -17,7 +17,6 @@ from deskcheck.application.image_pair_loader import ImagePairLoader
 from deskcheck.application.real_settings import RealSettings
 from deskcheck.application.result_renderer import ResultRenderer
 from deskcheck.application.result_serializer import ResultSerializer
-from deskcheck.detection.ultralytics_detector import UltralyticsDetector
 
 
 def main() -> int:
@@ -34,8 +33,7 @@ def main() -> int:
     staging = None
     try:
         settings = RealSettings.load(args.config)
-        detector = UltralyticsDetector(settings)
-        service = ComparisonService(detector=detector, config=settings)
+        service = ComparisonService.for_real(settings)
         frames = ImagePairLoader().load(args.before, args.after, args.pair_id)
         result = service.compare_frames(*frames, pair_id=args.pair_id)
         images = ResultRenderer().render(*frames, result)

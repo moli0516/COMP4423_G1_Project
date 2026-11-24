@@ -19,6 +19,11 @@ ROOT_FILES = {
     "README.md", "pyproject.toml", "requirements.txt", "requirements-windows-py312.lock.txt",
     "Start Jerry-C.cmd", "Start Jerry-C.sh", "STATUS_BOARD.md", ".gitignore", "LICENSE",
 }
+PUBLIC_CONFIGS = {
+    "configs/app.json", "configs/fake_app.json",
+    "configs/experiments/baseline.json", "configs/experiments/augmentation.json",
+    "configs/experiments/resolution.json",
+}
 SOURCE_DIRS = {"src", "app", "scripts", "tests", "docs"}
 SOURCE_SUFFIXES = {".py", ".md", ".json", ".jsonl", ".yaml", ".yml", ".txt", ".toml"}
 REQUIRED = {
@@ -59,7 +64,7 @@ def allowed(name: str) -> bool:
     ):
         return False
     return (
-        name in ROOT_FILES or name == "configs/fake_app.json"
+        name in ROOT_FILES or name in PUBLIC_CONFIGS
         or (path.parts[0] in SOURCE_DIRS and path.suffix in SOURCE_SUFFIXES)
     )
 
@@ -73,8 +78,8 @@ def validate_names(names) -> None:
             raise ValueError("Archive file/directory path collision")
 
 
-def git_bytes(root: Path, *args) -> bytes:
-    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True,
+def git_bytes(root: Path, *args, input_bytes: bytes | None = None) -> bytes:
+    result = subprocess.run(["git", "-C", str(root), *args], input=input_bytes, capture_output=True,
                             check=False, timeout=60)
     if result.returncode:
         raise ValueError(result.stderr.decode("utf-8", errors="replace").strip())
@@ -82,18 +87,32 @@ def git_bytes(root: Path, *args) -> bytes:
 
 
 def committed_sources(root: Path) -> tuple[str, dict[str, bytes]]:
-    if git_bytes(root, "branch", "--show-current").strip() != b"Jerry-C":
-        raise ValueError("Build only from the Jerry-C branch")
+    branch = git_bytes(root, "branch", "--show-current").strip()
+    if branch not in {b"Jerry-C", b"feat/c-e0-detector-integration"}:
+        raise ValueError("Build from the Jerry-C release or E0 integration branch")
     if git_bytes(root, "status", "--porcelain=v1", "--untracked-files=normal").strip():
         raise ValueError("Source worktree is dirty; preserve changes and commit/review before release")
     commit = git_bytes(root, "rev-parse", "HEAD").decode("ascii").strip()
-    names = git_bytes(root, "ls-tree", "-r", "--name-only", "-z", commit).decode("utf-8").split("\0")
-    selected = sorted(name for name in names if name and allowed(name))
-    archive = git_bytes(root, "archive", "--format=zip", commit, "--", *selected)
-    with zipfile.ZipFile(io.BytesIO(archive)) as source:
-        payloads = {name: source.read(name) for name in selected}
-        if any(source.getinfo(name).external_attr >> 16 & 0o170000 == 0o120000 for name in selected):
-            raise ValueError("Symlink sources cannot be packaged")
+    selected = {}
+    for entry in git_bytes(root, "ls-tree", "-r", "-z", commit).split(b"\0"):
+        if not entry:
+            continue
+        meta, raw_name = entry.split(b"\t", 1)
+        name = raw_name.decode("utf-8")
+        if allowed(name):
+            mode, kind, oid = meta.split()
+            if kind != b"blob" or mode not in (b"100644", b"100755"):
+                raise ValueError(f"Source must be a regular file: {name}")
+            selected[name] = oid
+    # Read raw objects. git archive applies export attributes and checkout line endings.
+    requested = b"".join(oid + b"\n" for oid in selected.values())
+    source = io.BytesIO(git_bytes(root, "cat-file", "--batch=%(objectsize)", input_bytes=requested))
+    payloads = {}
+    for name in selected:
+        size = int(source.readline())
+        payloads[name] = source.read(size)
+        if source.read(1) != b"\n":
+            raise ValueError(f"Incomplete Git object: {name}")
     return commit, payloads
 
 
@@ -107,17 +126,17 @@ def make_archive(commit: str, payloads: dict[str, bytes]) -> bytes:
         "format_version": "1.0", "scope": "C_SOURCE_ONLY", "source_commit": commit,
         "real_inference": "NOT_RUN", "final_submission_ready": False,
         "files": {name: hashlib.sha256(data).hexdigest() for name, data in sorted(payloads.items())},
-        "limitations": ["Dataset, checkpoint, A/B approvals and individual reports not included.",
-                        "Synthetic demo only; real runtime/accuracy not certified."],
+        "limitations": ["The team distributes checkpoints, photos and individual reports separately.",
+                        "E0 inference requires the released checkpoint and vision dependencies."],
     }
     entries = {**payloads, MANIFEST: (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()}
     output = io.BytesIO()
-    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    # Stored entries keep the complete ZIP reproducible across zlib implementations.
+    with zipfile.ZipFile(output, "w") as archive:
         for name, data in sorted(entries.items()):
             info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             info.create_system = 3
             info.external_attr = (0o100755 if name == "Start Jerry-C.sh" else 0o100644) << 16
-            info.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(info, data)
     return output.getvalue()
 

@@ -1,0 +1,559 @@
+{
+  "dataset_release": "formal v1",
+  "evaluation_split": "val",
+  "photos": 8,
+  "capture_groups": [
+    "G01",
+    "G03"
+  ],
+  "box_area_counts_original_pixels": {
+    "small": 0,
+    "medium": 0,
+    "large": 44
+  },
+  "held_out_test_run": false,
+  "native_validation_settings": {
+    "conf": 0.001,
+    "iou": 0.7,
+    "max_det": 300,
+    "batch": 2
+  },
+  "app_inference_device": "cpu",
+  "warmup_and_latency_samples_per_model": {
+    "warmups_per_image": 1,
+    "timed_per_image": 3,
+    "timed_predictions": 24
+  },
+  "training_seed": 42,
+  "training_batch": 2,
+  "data_sha256": "2b7412542f8e447e57fe9ee0da4f9f39e0a68d12e9ce1bd0b6de91fe4400e6b2",
+  "initial_weight_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+  "studies": {
+    "RTX 2060 SUPER": {
+      "native_comparison_sha256": "c9ffbadfbc2c5866a1e0e037524e74b9734737e706f9fa103ec8c16fed892e7c",
+      "evaluation_torch": "2.9.1+cu126",
+      "evaluation_ultralytics": "8.4.215",
+      "arms": {
+        "640": {
+          "size": 640,
+          "checkpoint_sha256": "8b4e3c46962a8dc79feb0d7637fc2af6fc6cdc23f1a275ac96a9bdbf4003a5e5",
+          "epochs_completed": 46,
+          "selected_epoch": 26,
+          "training_csv_seconds": 370.774,
+          "training_batch": 2,
+          "mAP50": 0.9813999999999999,
+          "mAP50_95": 0.8407937301587302,
+          "per_class": {
+            "bottle": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8759464285714286
+            },
+            "cup": {
+              "support": 5,
+              "AP50": 0.995,
+              "AP50_95": 0.8154999999999999
+            },
+            "keyboard": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8955
+            },
+            "mouse": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.844875
+            },
+            "book": {
+              "support": 8,
+              "AP50": 0.9134,
+              "AP50_95": 0.8283099999999999
+            },
+            "scissors": {
+              "support": 7,
+              "AP50": 0.995,
+              "AP50_95": 0.7846309523809524
+            }
+          },
+          "latency_median_ms": 126.46170001244172,
+          "latency_samples_ms": [
+            125.82479999400675,
+            126.63349998183548,
+            118.22609999217093,
+            144.5520999841392,
+            131.91680004820228,
+            128.74259997624904,
+            127.853799960576,
+            126.03849999140948,
+            132.16610008385032,
+            135.56349999271333,
+            147.58910005912185,
+            110.64599989913404,
+            123.26350004877895,
+            136.27619994804263,
+            129.46640001609921,
+            113.65080007817596,
+            114.72229997161776,
+            108.65169996395707,
+            114.9961999617517,
+            126.28990004304796,
+            144.95570003055036,
+            132.19240005128086,
+            118.63439995795488,
+            125.53870002739131
+          ],
+          "event_metrics": {
+            "events": {
+              "averaging": "fixed status set; absent-status F1 is zero",
+              "change_only_macro_f1": 0.8333333333333334,
+              "iou_threshold": 0.5,
+              "macro_f1": 0.8618421052631579,
+              "pair_count": 4,
+              "per_status": {
+                "added": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "moved": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "removed": {
+                  "f1": 0.5,
+                  "fn": 0,
+                  "fp": 2,
+                  "precision": 0.3333333333333333,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "unchanged": {
+                  "f1": 0.9473684210526315,
+                  "fn": 2,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 0.9,
+                  "support": 20,
+                  "tp": 18
+                }
+              },
+              "protocol_version": "basic-localized-events-v1",
+              "zero_division": 0
+            },
+            "no_change": {
+              "eligible_pair_count": 1,
+              "false_alarm_pair_count": 0,
+              "false_alarm_pair_ids": [],
+              "false_alarm_rate": 0.0,
+              "protocol_version": "independent-no-change-v1"
+            }
+          },
+          "optimizer_steps": 18,
+          "training_wall_seconds": 408.7,
+          "peak_allocated_MiB": 406,
+          "peak_reserved_MiB": 426
+        },
+        "960": {
+          "size": 960,
+          "checkpoint_sha256": "81d6e3523092179aca8ac67b3933fe5ad480dbbcc70933d7bf3759fa849e916d",
+          "epochs_completed": 28,
+          "selected_epoch": 8,
+          "training_csv_seconds": 318.364,
+          "training_batch": 2,
+          "mAP50": 0.995,
+          "mAP50_95": 0.8847549603174604,
+          "per_class": {
+            "bottle": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8547857142857144
+            },
+            "cup": {
+              "support": 5,
+              "AP50": 0.995,
+              "AP50_95": 0.8550000000000001
+            },
+            "keyboard": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8790357142857144
+            },
+            "mouse": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.852375
+            },
+            "book": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.9949999999999999
+            },
+            "scissors": {
+              "support": 7,
+              "AP50": 0.995,
+              "AP50_95": 0.8723333333333334
+            }
+          },
+          "latency_median_ms": 126.54354993719608,
+          "latency_samples_ms": [
+            129.5549999922514,
+            129.1947999270633,
+            122.41389998234808,
+            138.16480000969023,
+            141.0734000382945,
+            124.22110000625253,
+            147.05629996024072,
+            174.40799996256828,
+            137.33120006509125,
+            124.17259998619556,
+            123.45459999050945,
+            119.13849995471537,
+            127.53179995343089,
+            131.39130000490695,
+            122.7428000420332,
+            116.4475999539718,
+            115.16950000077486,
+            112.74749995209277,
+            125.55529992096126,
+            167.0894999988377,
+            134.28030000068247,
+            121.31690001115203,
+            130.79940003808588,
+            117.46380000840873
+          ],
+          "event_metrics": {
+            "events": {
+              "averaging": "fixed status set; absent-status F1 is zero",
+              "change_only_macro_f1": 1.0,
+              "iou_threshold": 0.5,
+              "macro_f1": 1.0,
+              "pair_count": 4,
+              "per_status": {
+                "added": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "moved": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "removed": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "unchanged": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 20,
+                  "tp": 20
+                }
+              },
+              "protocol_version": "basic-localized-events-v1",
+              "zero_division": 0
+            },
+            "no_change": {
+              "eligible_pair_count": 1,
+              "false_alarm_pair_count": 0,
+              "false_alarm_pair_ids": [],
+              "false_alarm_rate": 0.0,
+              "protocol_version": "independent-no-change-v1"
+            }
+          },
+          "optimizer_steps": 10,
+          "training_wall_seconds": 355.17,
+          "peak_allocated_MiB": 655,
+          "peak_reserved_MiB": 746
+        }
+      }
+    },
+    "AMD EPYC 9V74 CPU": {
+      "native_comparison_sha256": "42c2755db8b8dbf37a3e351770638549e34a1a26e8790fae65552ab8554cd7a5",
+      "evaluation_torch": "2.11.0+cpu",
+      "evaluation_ultralytics": "8.4.215",
+      "arms": {
+        "640": {
+          "size": 640,
+          "checkpoint_sha256": "36170c7d9d02999ea86734b00967e33e960410a4b87bf2474ffe7d5beffcbd88",
+          "epochs_completed": 33,
+          "selected_epoch": 13,
+          "training_csv_seconds": 238.807,
+          "training_batch": 2,
+          "mAP50": 0.995,
+          "mAP50_95": 0.8278263888888889,
+          "per_class": {
+            "bottle": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8100625000000001
+            },
+            "cup": {
+              "support": 5,
+              "AP50": 0.995,
+              "AP50_95": 0.7195
+            },
+            "keyboard": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8161875000000001
+            },
+            "mouse": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8463749999999999
+            },
+            "book": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.9558333333333333
+            },
+            "scissors": {
+              "support": 7,
+              "AP50": 0.995,
+              "AP50_95": 0.8190000000000002
+            }
+          },
+          "latency_median_ms": 78.33193450005638,
+          "latency_samples_ms": [
+            78.39138900089893,
+            81.516645001102,
+            79.26621600017825,
+            75.74628500151448,
+            67.4947700008488,
+            73.94998100062367,
+            80.66813800178352,
+            84.72859099856578,
+            78.27247999921383,
+            72.48438500027987,
+            64.54819200007478,
+            74.69382099952782,
+            73.56948400047258,
+            175.14649400072813,
+            80.24817499972414,
+            78.76324899916654,
+            70.44936800048163,
+            81.98140499916917,
+            80.71660099994915,
+            83.84749600008945,
+            138.39943099992524,
+            72.18638400081545,
+            69.91441199897963,
+            74.30121899960795
+          ],
+          "event_metrics": {
+            "events": {
+              "averaging": "fixed status set; absent-status F1 is zero",
+              "change_only_macro_f1": 0.7777777777777777,
+              "iou_threshold": 0.5,
+              "macro_f1": 0.8201754385964912,
+              "pair_count": 4,
+              "per_status": {
+                "added": {
+                  "f1": 0.6666666666666666,
+                  "fn": 0,
+                  "fp": 1,
+                  "precision": 0.5,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "moved": {
+                  "f1": 0.6666666666666666,
+                  "fn": 0,
+                  "fp": 1,
+                  "precision": 0.5,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "removed": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "unchanged": {
+                  "f1": 0.9473684210526315,
+                  "fn": 2,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 0.9,
+                  "support": 20,
+                  "tp": 18
+                }
+              },
+              "protocol_version": "basic-localized-events-v1",
+              "zero_division": 0
+            },
+            "no_change": {
+              "eligible_pair_count": 1,
+              "false_alarm_pair_count": 0,
+              "false_alarm_pair_ids": [],
+              "false_alarm_rate": 0.0,
+              "protocol_version": "independent-no-change-v1"
+            }
+          },
+          "optimizer_steps": null,
+          "training_wall_seconds": 248.79263505400013
+        },
+        "960": {
+          "size": 960,
+          "checkpoint_sha256": "4e7d8f57fe60498586c14ad36e51f8e7067c0b7581237bbe859f9552998da9a2",
+          "epochs_completed": 28,
+          "selected_epoch": 8,
+          "training_csv_seconds": 317.985,
+          "training_batch": 2,
+          "mAP50": 0.995,
+          "mAP50_95": 0.866136111111111,
+          "per_class": {
+            "bottle": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8325833333333333
+            },
+            "cup": {
+              "support": 5,
+              "AP50": 0.995,
+              "AP50_95": 0.8075000000000001
+            },
+            "keyboard": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8269904761904762
+            },
+            "mouse": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.8462250000000001
+            },
+            "book": {
+              "support": 8,
+              "AP50": 0.995,
+              "AP50_95": 0.979875
+            },
+            "scissors": {
+              "support": 7,
+              "AP50": 0.995,
+              "AP50_95": 0.9036428571428571
+            }
+          },
+          "latency_median_ms": 107.34805350057286,
+          "latency_samples_ms": [
+            111.80823999893619,
+            107.74615400077892,
+            104.28943900114973,
+            105.25243899974157,
+            103.54364599879773,
+            109.70257000008132,
+            113.08907999955409,
+            114.09976200047822,
+            107.69202700066671,
+            117.64639300054114,
+            106.55199600114429,
+            105.2839470012259,
+            101.98182400017686,
+            141.14654900004098,
+            105.57023000001209,
+            113.30367699883936,
+            105.95690400077729,
+            107.00408000047901,
+            115.91785499877005,
+            108.67542699998012,
+            103.48271700058831,
+            106.75616700063983,
+            109.31529000117735,
+            106.2859590001608
+          ],
+          "event_metrics": {
+            "events": {
+              "averaging": "fixed status set; absent-status F1 is zero",
+              "change_only_macro_f1": 1.0,
+              "iou_threshold": 0.5,
+              "macro_f1": 1.0,
+              "pair_count": 4,
+              "per_status": {
+                "added": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "moved": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "removed": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 1,
+                  "tp": 1
+                },
+                "unchanged": {
+                  "f1": 1.0,
+                  "fn": 0,
+                  "fp": 0,
+                  "precision": 1.0,
+                  "recall": 1.0,
+                  "support": 20,
+                  "tp": 20
+                }
+              },
+              "protocol_version": "basic-localized-events-v1",
+              "zero_division": 0
+            },
+            "no_change": {
+              "eligible_pair_count": 1,
+              "false_alarm_pair_count": 0,
+              "false_alarm_pair_ids": [],
+              "false_alarm_rate": 0.0,
+              "protocol_version": "independent-no-change-v1"
+            }
+          },
+          "optimizer_steps": null,
+          "training_wall_seconds": 328.72668277499906
+        }
+      }
+    }
+  }
+}

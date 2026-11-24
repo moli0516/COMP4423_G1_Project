@@ -1,13 +1,14 @@
 """Decode a canonical pair without model resizing or silent alpha compositing."""
 
 import io
+import sys
 import warnings
 from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageOps
 
-from deskcheck.application.image_frame import ImageFrame
+from deskcheck.domain.image_frame import ImageFrame
 
 
 class ImagePairLoader:
@@ -29,7 +30,13 @@ class ImagePairLoader:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", Image.DecompressionBombWarning)
-                with Image.open(target) as image:
+                # Ultralytics 8.4.215 patches PIL.Image.open to install a HEIF plugin on
+                # any unidentified input. Use its saved native opener for C's uploads.
+                opener = Image.open
+                patches = sys.modules.get("ultralytics.utils.patches")
+                if patches is not None and opener is getattr(patches, "image_open", None):
+                    opener = patches._image_open
+                with opener(target) as image:
                     if image.width * image.height > self.MAX_PIXELS:
                         raise ValueError("Image exceeds the 20-million-pixel resource limit")
                     if "A" in image.getbands() or "transparency" in image.info:
@@ -38,7 +45,9 @@ class ImagePairLoader:
                     try:
                         rgb = oriented.convert("RGB")
                         try:
-                            pixels = np.array(rgb, dtype=np.uint8, copy=True)
+                            pixels = np.frombuffer(rgb.tobytes(), dtype=np.uint8).reshape(
+                                rgb.height, rgb.width, 3
+                            )
                         finally:
                             rgb.close()
                     finally:
@@ -50,4 +59,7 @@ class ImagePairLoader:
             Image.DecompressionBombWarning,
         ) as error:
             raise ValueError("Cannot decode image input") from error
-        return ImageFrame(pixels)
+        return ImageFrame(
+            array=pixels, width=pixels.shape[1], height=pixels.shape[0],
+            source_path=None if isinstance(source, bytes) else Path(source),
+        )

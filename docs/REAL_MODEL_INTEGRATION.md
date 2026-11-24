@@ -1,122 +1,64 @@
-# Jerry-C real-model inference entry point
+# Run A's E0 detector in DeskCheck
 
-This is **new executable Part C integration** for an externally supplied local
-Ultralytics YOLO detect-model checkpoint. It does **not** include a real model
-or a new training result; A has not yet supplied one. No network/API/model
-download is performed by Jerry-C's inference command.
+C integrated the E0 handoff at `45f0e0a` and the subsequent A changes through `44e2322` on PR #10. C's loader applies EXIF orientation and decodes RGB once. The three real entry points construct `ComparisonService.for_real(settings)` and pass the shared frame straight to `YoloDetector.predict`. B's filter, matcher, change rules and evaluator then consume the detections.
 
-## Two distinct modes
+## Set up the released model
 
-- **Synthetic:** existing `Start Jerry-C.cmd`, built-in fake color test and
-  `scripts/predict_pair.py`. Never report these as real-photo inference.
-- **Real (requires A's checkpoint):** `scripts/predict_real_pair.py` and the
-  "Run local YOLO checkpoint" choice in the SAME Streamlit app.
-  Both use the existing B detection filter, matcher, analyzer and
-  `ResultRenderer` / `ResultSerializer`. They require explicit real config
-  and a local `.pt` file with matching SHA-256.
+Use the team's [E0 checkpoint release](https://drive.google.com/drive/folders/1g5Ri_W7Q4R7QpWqL0dbFkxqp9dSpbily) and put `best.pt` in the checkout under `artifacts/`. Install the UI and vision extras in the project environment. For CPU-only installations, use the PyTorch CPU wheel appropriate to the platform. The verification environment used Python 3.12.14, Ultralytics 8.4.215, PyTorch 2.11.0+cpu and torchvision 0.26.0+cpu.
 
-## When A's file arrives
+```bash
+python -m pip install -e ".[ui,vision]"
+python scripts/check_c_setup.py --profile ui --real-config configs/app.json
+python scripts/predict_real_pair.py --config configs/app.json --before before.jpg --after after.jpg --pair-id desk-pair --output runs/desk-pair
+```
 
-1. Keep A's weight outside git, for example
-   `C:\Users\qwqwh\Documents\COMP4423_MODEL_PRIVATE\best.pt`.
-   Do not pretend the proposed A PR's `configs/experiments/*.json`
-   are trained models. Confirm the actual checkpoint is for object detection.
-2. In a Python shell, calculate the complete weight hash:
+Select a new output directory for each run. For the UI, set the environment variable to the same configuration, start Streamlit, choose the local YOLO checkpoint, then upload the two photographs. In PowerShell from the project root:
 
-   ```python
-   import hashlib
-   from pathlib import Path
-   p = Path(r"C:\absolute\path\to\best.pt")
-   h = hashlib.sha256()
-   with p.open("rb") as stream:
-       for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-           h.update(chunk)
-   print(h.hexdigest())
-   ```
+```powershell
+$env:DESKCHECK_REAL_CONFIG = (Resolve-Path configs/app.json).Path
+python -m streamlit run app/streamlit_app.py
+```
 
-3. Create an **untracked local config outside git** (e.g.
-   `C:\Users\qwqwh\Documents\COMP4423_MODEL_PRIVATE\real.json`)
-   using this schema, with actual verified values:
+In Bash:
 
-   ```json
-   {
-     "schema_version": "1.0",
-     "mode": "real",
-     "checkpoint_path": "best.pt",
-     "checkpoint_sha256": "REPLACE_WITH_ACTUAL_64_HEX_SHA256",
-     "model_origin": "REPLACE_WITH_A_SOURCE_AND_TRAINING_RUN_ID",
-     "confidence_threshold": 0.25,
-     "movement_threshold": 0.02,
-     "nms_iou_threshold": 0.5,
-     "imgsz": 640,
-     "rules_version": "REPLACE_WITH_APPROVED_RULES_VERSION",
-     "class_names": ["bottle", "cup", "keyboard", "mouse", "book", "scissors"]
-   }
-   ```
+```bash
+DESKCHECK_REAL_CONFIG="$PWD/configs/app.json" python -m streamlit run app/streamlit_app.py
+```
 
-   **Numbers in this illustration are not approved/frozen team settings**;
-   replace them from A/B's actual validated run. The local real config is
-   rejected if missing, malformed, nonfinite, wrongly hashed or inconsistent.
+## Settings and ownership
 
-4. Only once the local checkpoint exists, install the optional Vision
-   dependencies into the **separate Jerry-C environment** if not already
-   installed: `python -m pip install -e ".[vision]"`. This may install a
-   large CPU/torch stack; do not run an installation automatically just to
-   test the UI. GPU use is not required; the adapter explicitly selects CPU.
-   The model is created with its absolute, already verified local path,
-   not with an auto-download model identifier.
-5. In the `Jerry-C` repository from PowerShell, run:
+| Setting | Effective value |
+| --- | --- |
+| A checkpoint SHA-256 | `82ed9f8569b705e7074f44d81006515da3e02dde3284a211c4a73a5f9d96c438` |
+| C application config SHA-256 | `b6eec16b8d5289665035ce40d4bf961a8145b81fd30c1037b1fb4fec9d69798f` |
+| CPU inference | confidence 0.20, backend NMS IoU 0.35, input size 640 |
+| B movement rule | center displacement / oriented image diagonal strictly greater than 0.02152951369355096 |
+| Canonical IDs in order | 0 bottle, 1 cup, 2 keyboard, 3 mouse, 4 book, 5 scissors |
 
-   ```powershell
-   .\.venv\Scripts\python.exe -B scripts/predict_real_pair.py --config "C:\absolute\path\to\real.json" --before "C:\photos\before.jpg" --after "C:\photos\after.jpg" --pair-id real-p1 --output "runs\real-p1-new"
-   ```
+A's standalone `resolved_config.json`, tuning invocation and top-level `artifact.json` agree on 0.20/0.35. The nested training snapshot in `artifact.json` lists the earlier 0.25/0.45 settings. The movement threshold comes from [B's freeze recorded in section 3c](https://github.com/moli0516/COMP4423_G1_Project/blob/45f0e0a/docs/a_contracts_freeze.md). `RealSettings` checks the checkpoint bytes and binds effective parameters to the exact configuration bytes on every construction.
 
-   Output directory must be new. Four files:
-   `result.json`, `result.csv`, `annotated_before.png`,
-   `annotated_after.png`. The result metadata includes actual checkpoint
-   SHA-256 and resolved config SHA-256. A failed real model load/inference
-   returns a nonzero exit code **without fake fallback**.
-6. To use the existing UI, set `DESKCHECK_REAL_CONFIG` to the absolute
-   local config path before launching `Start Jerry-C.cmd`, choose
-   "Run local YOLO checkpoint", upload photos and compare. Without the
-   config, the real button is disabled and no fake inference is published.
+A owns preprocessing, model loading, backend NMS and the output class/box mapping. A adopted the RGB-to-BGR correction at the NumPy input boundary in `8c6bfc1`. Ultralytics takes NumPy images in BGR order. Converting the shared RGB snapshot there preserves the UI pixels and matches the backend's PIL input. The adapter checks source geometry and requires one mapping for each target class. [Ultralytics inference sources](https://docs.ultralytics.com/modes/predict/#inference-sources)
 
-## Settings integrity and A/B ownership
+## Real checkpoint checks
 
-`RealSettings` is now **source-bound**: an instance carries its immutable
-config bytes and original resolved source path, and `__post_init__` validates
-all effective fields against that source and checkpoint SHA-256.
-`dataclasses.replace(settings, movement_threshold=...)` or direct construction
-with a mismatched `config_sha256` is rejected; a legitimate change requires
-reloading a new source and produces a new hash. This protects the metadata
-used in UI, CLI and B runner. It is a safeguard against accidental
-in-process changes, not a substitute for A's real-checkpoint validation.
+On the two 2048 × 1536 P1 pilot originals, the unmodified A adapter and an independent PIL reference produced different predictions on both images. On the before image the counts were 9 and 10 respectively. With the channel correction the raw BGR input matched PIL on both photographs. After B's filter, all 12 selected boxes, classes and confidence scores matched the independent reference exactly in oriented pixels.
 
-A **accepted** production detector ownership in [PR #9](https://github.com/moli0516/COMP4423_G1_Project/pull/9#issuecomment-6799449023): the current `UltralyticsDetector` is a C-provided candidate that A will adopt, review and refine on A's own branch. A owns final model loading, preprocessing, backend NMS, class mapping and pixel-box restoration. No separate competing C production detector should be created.
-C keeps image loading, UI/CLI orchestration, exports, and an explicit frame
-adapter seam; B owns filter/matcher/change/evaluation. See
-[A/B/C detector handoff](A_B_C_DETECTOR_HANDOFF.md).
+The app reported six objects and one change on P1. The bottle's normalized displacement was 0.04369357. Chromium uploads and the standalone CLI produced byte-identical JSON, CSV and both annotated PNGs. P1 was used for inference transport only. The separate external coffee identity check also produced four byte-identical exports, but predicted a mouse and a book as well as the visible cup. Entry-point agreement measures implementation consistency. Formal validation and E2 training have separate evidence requirements.
 
-## Exact contract and limitations
+The two external photo pairs also ran through B's regular batch CLI. Across the three pairs, all 12 browser downloads matched the CLI bytes. Both external pairs' six batch event records matched the corresponding UI/CLI records, with identical config and checkpoint hashes. One external pair was the same coffee photograph supplied twice. The other was an unchanged ALOI mug photographed twice at a fixed camera position with different lighting. On that pair the model reported a removed book. The external run used only the independently captured ALOI pair for the no-change metric.
 
-- A model supplies native `Results.boxes.xyxy/conf/cls` and its `names`
-  mapping; the adapter converts those to B's six canonical `Detection`
-  classes. It supports six-class custom models as well as models whose
-  native class list contains extra classes, but it **requires all six**
-  names, rejects duplicate class mappings, and drops unsupported labels.
-- The loader applies EXIF orientation and RGB conversion once. The adapter
-  supplies a *copy* as OpenCV-style BGR to Ultralytics, requests CPU
-  inference and expects model boxes in the original oriented pixel system.
-  Ultralytics handles its internal letterbox/rescale and backend NMS.
-- B's existing filter keeps at most one prediction/class. Matching and
-  status meanings are **unchanged**. A/B must still approve the final
-  confidence, movement threshold, NMS setting, class policy and alpha policy.
-- The only current real-mode tests **inject a controlled model API stub**,
-  assert class mapping/B integration and explicit no-fallback failures.
-  This is genuine application wiring, **not proof of a successful
-  Ultralytics inference, academic checkpoint, held-out real-photo quality,
-  E2 resolution experiment or course marking**. Those remain blocked by
-  A's yet-to-be-delivered weights and frozen dataset.
+## Formal v1 validation
 
-Primary API reference: https://docs.ultralytics.com/modes/predict/
-and https://docs.ultralytics.com/reference/engine/results/
+On 22 November 2026, C ran the released E0 checkpoint on all four validation pairs using the configuration above. Chromium uploaded both original photos for each pair. All 16 downloaded files (JSON, CSV and two annotated PNGs per pair) matched the corresponding single-pair CLI files byte for byte. All 23 event records also matched B's batch runner. An independent PIL-input run on the eight original images reproduced all 43 retained detections, including class, score and original-pixel coordinates.
+
+B's evaluator matched 22 of 23 annotated events at IoU 0.50. On `G01P1`, the detector missed the scissors in the after photo and the application consequently reported a removal. The eligible independently captured control, `G03P2`, produced zero changes. The held-out test split was left untouched. [Pair results, scores and release digests](REAL_BATCH_EVALUATION.md#formal-v1-results)
+
+A confirmed the color conversion, training output directory fix and starting-weight identity. C ran its paired 640 and 960 experiments through the shared trainer using the same initialization and batch size within each pair. [A’s confirmation](https://github.com/moli0516/COMP4423_G1_Project/pull/8#issuecomment-7075147335) [Resolution experiment results](C_E2_RESOLUTION_PROTOCOL.md)
+
+## Acceptance after integrating A’s latest detector and trainer revisions
+
+The C integration includes A’s commit `44e2322`. C retained the six-class checkpoint check and original-image geometry validation, and integrated A’s distinction between a valid empty detection set and a malformed result. The E2 preflight also isolates the backend settings used by its dry run. A real preflight with the released E0 metadata left the saved Ultralytics settings byte-identical.
+
+At application commit `461db74`, Chrome 157 on Windows uploaded the original photographs for each of the four validation pairs. Each of the 16 browser downloads had the expected filename and the same bytes as its corresponding fresh CLI result. All 23 event records agreed with B’s batch runner. The 43 retained detections matched the prior Windows E0 reference in confidence and original-pixel coordinates. B’s evaluator again matched 22 of 23 ground-truth events.
+
+Earlier, consecutive clicks could cancel a full-resolution PNG when a prepared download triggered an app rerun. The four buttons now serve the prepared bytes without rerunning Streamlit. The final Windows vision suite passed 568 tests with 10 POSIX-only skips. The POSIX dev suite passed 577 tests with the optional vision integration skipped. Both Ruff checks passed. [Per-pair file digests, runtime and evaluation results](evidence/c_e0_entrypoints_20261123.json)

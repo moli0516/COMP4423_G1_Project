@@ -1,40 +1,25 @@
 # Jerry-C: Real Batch Evaluation (C-owned integration)
 
-**Status:** C entrypoint implemented, tested with an injected YOLO API stub; **not** a trained-model or held-out test result. A owns the final production detector; B owns all evaluation semantics.
-
-## What this actually adds
-
-`scripts/evaluate_real_pairs.py` is the executable bridge from a reviewed photo-pair
-inventory to **B's existing** `EvaluationRunner`. It loads the same
-`RealSettings`, C's currently provisional `UltralyticsDetector`,
-`ComparisonService` and B `EvaluationRunner` as the rest of C. No alternative
-status classifier or event scorer has been implemented.
-
-This is a **batch evaluation entrypoint**, not a training script or a change to
-A's annotations/exporter. It does not download a checkpoint, use filename clues
-for inference, or silently fall back to fake detections.
+The batch CLI constructs the same real comparison service as the UI and single-pair CLI. It passes that service to B's `EvaluationRunner`. The detector receives only canonical RGB frames. Annotations and no-change eligibility go to the evaluator.
 
 ## Inputs
 
-Pass three explicit paths from the `Jerry-C` repository:
+Pass three explicit paths from the repository root:
 
 ```powershell
 .\.venv\Scripts\python.exe -B scripts/evaluate_real_pairs.py `
-  --config "C:\private\deskcheck\approved_real.json" `
+  --config configs/app.json `
   --manifest "C:\private\deskcheck\val_pairs_reviewed.json" `
   --output "runs\real-evaluation-unique-name"
 ```
 
 - `--config` points to a **real, locally existing** checkpoint and SHA-256,
   the frozen class mapping, model identity and threshold. See
-  [REAL_MODEL_INTEGRATION.md](REAL_MODEL_INTEGRATION.md). Ultralytics/PyTorch
-  are optional dependencies and have not been installed/verified for this work.
+  [REAL_MODEL_INTEGRATION.md](REAL_MODEL_INTEGRATION.md).
 - `--manifest` is a reviewed B-event manifest, containing a complete pair inventory,
   exact pair-keyed ground-truth events and a list of independently captured
   no-change controls. The schema below is a **C integration transport format**;
-  it is not A's native `pairs.jsonl`. When A's annotation converter and dataset
-  are available, adapt them to this format with A/B agreement, without leaking
-  gold labels to the detector.
+  it is not A's native `pairs.jsonl`. Use the validation helper below for A’s native v1 annotations.
 - `--output` must be a **new** directory. No existing result is replaced.
 
 Minimal shape (illustrative only; **do not use this as real gold or approved τ**):
@@ -67,9 +52,7 @@ Minimal shape (illustrative only; **do not use this as real gold or approved τ*
 
 Relative image paths are resolved against the manifest file's directory,
 not the process's current working directory. The manifest must declare
-`split` explicitly as `val` or `test`. B's accepted rule/threshold and A's
-frozen dataset must be decided before any final `test` run; this CLI never
-approves itself to use a held-out test or selects a threshold. Missing/duplicate
+`split` explicitly as `val` or `test`. Use the team's frozen split for a formal run. Missing/duplicate
 pairs, mismatched truth inventory, missing files, missing checkpoint and
 nonfinite JSON values all cause failure without a substitute result.
 
@@ -79,30 +62,44 @@ On success B creates **exactly** these files:
 
 - `predictions.json`: one record list per pair, from `ComparisonService`.
 - `metrics.json`: B's event-level and no-change metrics **only**;
-  **not detector AP**, precision/recall measured on real images or model accuracy
-  until genuine frozen data/checkpoint are supplied.
+  Detector-level AP requires separate evaluation before B’s per-class filter.
 - `run_metadata.json`: pair inventory, explicit eligible controls, evaluation
   protocol, and recorded `split`, `dataset_release`, config SHA-256,
   checkpoint SHA-256, model origin, rules version, thresholds and manifest SHA-256.
 
-B's evaluator is the only scoring implementation. It receives gold records
-**after** the independently decoded pair pixels are passed to the detector.
-UI, single-pair CLI and batch runner use the same C `ComparisonService` and B
-filter/matcher/change analyzer. After A merges the official detector, that
-one backend must replace C's provisional adapter consistently in all three
-entrypoints.
+## Prepare A's formal validation manifest
 
-## Current validation and handoff
+From the checkout, supply paths to the released files and a new output directory.
 
-`tests/c_real/test_real_batch_evaluation.py` invokes the actual
-`EvaluationRunner` through a deliberate in-memory YOLO API stub, verifies
-the two-pair change/control output files and provenance, rejects a missing
-checkpoint, and refuses missing truth and overwrites. These tests verify
-software wiring, **not** actual YOLO runtime, classroom marking or final
-real-photo equivalence.
+```bash
+python scripts/prepare_real_validation.py --annotations release/pairs.jsonl --splits release/splits.json --output runs/val_manifest.json
+python scripts/evaluate_real_pairs.py --config configs/app.json --manifest runs/val_manifest.json --output runs/e0_val
+```
+The helper uses A's catalog and event conversion, selects the validation IDs, preserves missing sides and carries the independently captured control flags. B requires at least one eligible control with annotated unchanged objects to calculate the no-change rate.
 
-**Next real acceptance:** after A supplies trained checkpoint, real frozen
-pairs and the shared ImageFrame: run the same pair through UI, single-pair CLI
-and batch evaluation, compare complete records and hashes, and ask A/B to
-review original-image coordinates and frozen threshold. Until then, no
-real-photo model metric or final acceptance is claimed.
+## Formal v1 results
+
+On 22 November 2026 the two commands above ran against the frozen four-pair validation split and A's E0 checkpoint. The eight original images were 4096 × 3072 pixels. Their 44 annotated boxes yielded 23 ground-truth events.
+
+| Validation pair | Annotated changes | E0 result |
+| --- | --- | --- |
+| G01P1 | None | Reported scissors removed. The after-frame detector output had no scissors. |
+| G01P2 | Scissors removed | Correct on all six events. |
+| G03P1 | Bottle moved, cup added | Correct on all six events. |
+| G03P2 | None, independently captured control | Correct on all five events. |
+
+At event IoU 0.50, the evaluator matched 22 of 23 ground-truth events. Added and moved each had one true positive. Removed had one true positive and one false positive. Unchanged had 19 true positives and one false negative. Four-status macro-F1 was **0.9103** and change-only macro-F1 was **0.8889**. The release designates only G03P2 as an independent control, giving **0 alarms in 1 eligible pair**.
+
+On G01P1 the before-frame scissors scored 0.6526 at IoU 0.9687 against the annotated box. In an after-frame diagnostic pass at confidence 0.001, the scissors candidate still localized the object at IoU 0.9425 but scored only 0.1929, below the released cutoff of 0.20. A cup prediction at the same position scored 0.2152. B retained the separate true cup at 0.8781. The false removal therefore arose at the detector's class/score decision. The formal results above use the original thresholds.
+
+### E0 detector AP
+
+Using Ultralytics 8.4.215's native validator on the eight released YOLO validation JPEGs and their 44 labels, C reproduced the detector AP reported for E0 epoch 64. At nominal size 640, evaluation confidence 0.001 and NMS IoU 0.70 on CPU, mAP50 was **0.99500** and mAP50–95 was **0.8778869**. The released training CSV rounds the latter to 0.87789. These metrics use detector predictions before B's one-per-class filter. The application uses the frozen thresholds and the original photographs for the event scores above.
+
+| Input | Measured SHA-256 |
+| --- | --- |
+| Formal v1 ZIP (356,090,127 bytes) | `0a49f3bc1308f1d5ac292cfb6274c17ef89abcc616dc21c1dd1eea0eeafa63f9` |
+| Native annotations `pairs.jsonl` | `066adf1eb1921c14bc7729fe577ef5da489102029d38a512cde33eae9c289588` |
+| Native split `splits.json` | `6ff54612563c869dae24482c1cc219432c36c011bd3aef8237e7fe8fda982ebb` |
+
+The model, app configuration, and entry-point parity checks are recorded in [the E0 integration handoff](REAL_MODEL_INTEGRATION.md).

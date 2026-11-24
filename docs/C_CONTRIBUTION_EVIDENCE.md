@@ -1,5 +1,11 @@
 # C factual contribution/evidence index
 
+C validated the released E0 model in all three application entry points and reproduced its detector AP. The four validation pairs produced 23 matching event records across the entry points. Against ground truth, 22 were correct. [Application validation and detector AP](REAL_BATCH_EVALUATION.md#formal-v1-results)
+
+C also prepares the formal training data for A's trainer and runs the matched resolution comparison. [Experiment methods and results](C_E2_RESOLUTION_PROTOCOL.md)
+
+## Earlier synthetic and stub-based milestones
+
 This is an index of code and verification, not an individually authored academic
 report or a claim that the student personally wrote every line. Implementation and
 tests in this chat are AI-assisted. Each student must inspect/run/explain the work,
@@ -28,6 +34,4 @@ tests plus actual generated-image inspection exposed these defects; serializer
 cross-checks and compact label placement corrected them. A read-only reviewer
 also identified the stale oracle fixture and cwd-dependent repair command.
 
-Not established: independently captured/annotated data, actual model training or
-inference, detector AP, accepted movement threshold, A/B review/merge, a clean
-install on a teammate's computer, or a newly performed manual browser walkthrough.
+The synthetic milestone did not evaluate a trained model. Later E0 and E2 evidence is linked at the top of this page.
