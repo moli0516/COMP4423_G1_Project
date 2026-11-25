@@ -1,0 +1,271 @@
+diff --git a/tests/integration/test_detector_b_pipeline.py b/tests/integration/test_detector_b_pipeline.py
+new file mode 100644
+--- /dev/null
++++ b/tests/integration/test_detector_b_pipeline.py
+@@ -0,0 +1,195 @@
++"""P2: fake detector -> real filtering, matching and change analysis.
++
++The composition below is test-only: C's ComparisonService is not exercised.
++"""
++
++import copy
++
++import numpy as np
++import pytest
++
++from deskcheck.changes.change_analyzer import ChangeAnalyzer
++from deskcheck.detection.detection_filter import DetectionFilter
++from deskcheck.detection.object_detector import ObjectDetector
++from deskcheck.domain.bounding_box import BoundingBox
++from deskcheck.domain.detection import Detection
++from deskcheck.domain.image_frame import ImageFrame
++from deskcheck.matching.object_matcher import ObjectMatcher
++
++TEST_TAU = 0.1  # Test-only; not approval of the project movement threshold.
++TEST_CONFIDENCE = 0.5
++
++
++def _frame(marker):
++    # Non-square frame: diagonal hypot(80, 60) == 100 pixels.
++    return ImageFrame(
++        array=np.full((60, 80, 3), marker, dtype=np.uint8),
++        width=80, height=60, source_path=None,
++    )
++
++
++def _detection(identifier, class_id, x=5, y=5, confidence=0.9):
++    return Detection(identifier, class_id, confidence, BoundingBox(x, y, x + 4, y + 4))
++
++
++class ScriptedDetector(ObjectDetector):
++    """Return independently supplied detections; inspect frames, never paths."""
++
++    def __init__(self, before, after):
++        self.responses = [before, after]
++        self.calls = []
++
++    def predict(self, image: ImageFrame) -> list[Detection]:
++        assert isinstance(image, ImageFrame)
++        assert image.source_path is None
++        assert image.array.dtype == np.uint8
++        assert image.array.shape == (image.height, image.width, 3)
++        index = len(self.calls)
++        assert index < 2, "Unexpected extra inference call"
++        assert np.all(image.array == (11 if index == 0 else 22))
++        self.calls.append(image)
++        # Deliberately return original lists to expose downstream mutation.
++        return self.responses[index]
++
++
++def _run_pipeline(before, after, *, tau=TEST_TAU, reverse=False):
++    before_frame, after_frame = _frame(11), _frame(22)
++    inputs = [list(before), list(after)]
++    if reverse:
++        inputs = [list(reversed(items)) for items in inputs]
++    snapshot = copy.deepcopy(inputs)
++    arrays = [before_frame.array.copy(), after_frame.array.copy()]
++    detector = ScriptedDetector(*inputs)
++    detection_filter = DetectionFilter(confidence_threshold=TEST_CONFIDENCE)
++    filtered_before = detection_filter.apply(detector.predict(before_frame))
++    filtered_after = detection_filter.apply(detector.predict(after_frame))
++    filtered_snapshot = (list(filtered_before), list(filtered_after))
++    matches = ObjectMatcher().match(filtered_before, filtered_after)
++    records = ChangeAnalyzer(movement_threshold=tau).analyze(
++        matches, image_size=(before_frame.width, before_frame.height),
++    )
++    assert len(detector.calls) == 2
++    assert detector.calls[0] is before_frame
++    assert detector.calls[1] is after_frame
++    assert inputs == snapshot
++    assert (filtered_before, filtered_after) == filtered_snapshot
++    np.testing.assert_array_equal(before_frame.array, arrays[0])
++    np.testing.assert_array_equal(after_frame.array, arrays[1])
++    return records
++
++
++def test_p2_all_statuses_and_absent_both():
++    before = [
++        _detection("b2", 2), _detection("b1", 1), _detection("b0", 0),
++    ]
++    after = [
++        _detection("a3", 3), _detection("a2", 2, x=25), _detection("a0", 0),
++    ]
++    records = _run_pipeline(before, after)
++    assert [record["class_id"] for record in records] == [0, 1, 2, 3]
++    assert [record["status"] for record in records] == [
++        "unchanged", "removed", "moved", "added",
++    ]
++    assert [record["indicates_change"] for record in records] == [False, True, True, True]
++    assert all(record["movement_threshold"] == TEST_TAU for record in records)
++    assert records[0]["distance_norm"] == 0
++    assert records[2]["distance_norm"] == pytest.approx(0.2)
++    assert records[1]["distance_norm"] is None
++    assert records[3]["distance_norm"] is None
++    assert records[0]["before_box"] == [5, 5, 9, 9]
++    assert records[2]["after_box"] == [25, 5, 29, 9]
++    assert records[1]["after_box"] is None
++    assert records[1]["after_detection_id"] is None
++    assert records[3]["before_box"] is None
++    assert records[3]["before_detection_id"] is None
++    assert records == _run_pipeline(before, after, reverse=True)
++
++
++@pytest.mark.parametrize(
++    ("dx", "expected"), [(9, "unchanged"), (10, "unchanged"), (11, "moved")],
++)
++def test_p2_movement_boundary(dx, expected):
++    records = _run_pipeline(
++        [_detection("b", 0)], [_detection("a", 0, x=5 + dx)],
++    )
++    assert len(records) == 1
++    assert records[0]["distance_norm"] == pytest.approx(dx / 100)
++    assert records[0]["status"] == expected
++    assert records[0]["indicates_change"] == (expected == "moved")
++
++
++def test_p2_confidence_filter_changes_presence_and_keeps_equality():
++    before = [
++        _detection("b0", 0, confidence=0.49),
++        _detection("b1", 1, confidence=0.5),
++        _detection("b2", 2, confidence=0.5),
++        _detection("b3", 3, confidence=0.49),
++    ]
++    after = [
++        _detection("a0", 0, confidence=0.5),
++        _detection("a1", 1, confidence=0.49),
++        _detection("a2", 2, confidence=0.5),
++        _detection("a3", 3, confidence=0.49),
++    ]
++    records = _run_pipeline(before, after)
++    assert [(r["class_id"], r["status"]) for r in records] == [
++        (0, "added"), (1, "removed"), (2, "unchanged"),
++    ]
++    assert records[0]["before_detection_id"] is None
++    assert records[0]["after_detection_id"] == "a0"
++    assert records[1]["before_detection_id"] == "b1"
++    assert records[2]["before_detection_id"] == "b2"
++
++
++def test_p2_highest_confidence_duplicate_is_selected_before_matching():
++    before = [
++        _detection("low", 0, x=5, confidence=0.8),
++        _detection("high", 0, x=25, confidence=0.9),
++    ]
++    after = [_detection("after", 0, x=25)]
++    records = _run_pipeline(before, after)
++    assert len(records) == 1
++    assert records[0]["before_detection_id"] == "high"
++    assert records[0]["before_box"] == [25, 5, 29, 9]
++    assert records[0]["status"] == "unchanged"
++    assert records == _run_pipeline(before, after, reverse=True)
++
++
++def test_p2_equal_confidence_uses_geometry_then_identifier():
++    before = [
++        _detection("later-geometry", 0, x=25),
++        _detection("z", 0, x=5), _detection("a", 0, x=5),
++    ]
++    after = [_detection("after", 0, x=5)]
++    records = _run_pipeline(before, after)
++    assert records[0]["before_detection_id"] == "a"
++    assert records[0]["status"] == "unchanged"
++    assert records == _run_pipeline(before, after, reverse=True)
++
++
++def test_p2_far_same_class_is_moved_not_added_and_removed():
++    records = _run_pipeline(
++        [_detection("before", 0, x=1, y=1)],
++        [_detection("after", 0, x=70, y=50)],
++    )
++    assert len(records) == 1
++    assert records[0]["class_id"] == 0
++    assert records[0]["status"] == "moved"
++    assert records[0]["before_detection_id"] == "before"
++    assert records[0]["after_detection_id"] == "after"
++
++
++def test_p2_empty_frames_produce_no_records():
++    assert _run_pipeline([], []) == []
++
++
++def test_p2_different_classes_are_not_matched_by_overlap():
++    records = _run_pipeline([_detection("before", 0)], [_detection("after", 1)])
++    assert [(r["class_id"], r["status"]) for r in records] == [
++        (0, "removed"), (1, "added"),
++    ]
++
++
++def test_p2_out_of_frame_detection_is_not_silently_accepted():
++    with pytest.raises(ValueError):
++        _run_pipeline([_detection("bad", 0, x=79)], [])
+diff --git a/docs/p2_detector_b_pipeline_verification.md b/docs/p2_detector_b_pipeline_verification.md
+new file mode 100644
+--- /dev/null
++++ b/docs/p2_detector_b_pipeline_verification.md
+@@ -0,0 +1,66 @@
++# P2: detector-boundary to B pipeline integration
++
++## Scope
++
++Tests use ImageFrame(source_path=None), a scripted ObjectDetector subclass, and
++production DetectionFilter, ObjectMatcher and ChangeAnalyzer. No production code
++is added or modified. The helper composes those APIs only inside the test module.
++
++The inspected remote application/comparison_service.py is a NotImplementedError
++stub (blob 840258e519b8da3972f4ff6e1562fa2530ff10bd). This patch does not claim
++that C's service, loader, runner bridge or UI is integrated. No images are decoded,
++no checkpoint is loaded and no detector AP/model accuracy is measured.
++
++## Inspected API blobs
++
++- detection_filter.py: 8826d4bf451666ea444d5b2653213e7bdbef97c0
++- object_matcher.py: e821a122c255cd4ca58ac1793c9e510aa9dad875
++- change_analyzer.py: 7b2e9cd4ed378ec40fea9ff97e6ccdd5622dc792
++- detection.py: 716b1d0a28e647bb9554eefa960625b73b115edb
++
++The inspected filter currently implements confidence >= threshold, highest
++confidence per class, then ascending geometry and detection ID. Tests document
++that implementation; they do not constitute team approval of the policy.
++TEST_TAU=0.1 and confidence=0.5 are synthetic test settings, not release settings.
++An 80x60 frame has diagonal 100, allowing exact below/equal/above test displacements.
++
++## Coverage
++
++11 collected cases (one test is parameterized over three values):
++- all four statuses, absence of absent-both rows, sorted outputs;
++- normalized movement below, equal to and above tau;
++- confidence below/equal threshold and resulting side presence;
++- duplicate selection by confidence, geometry and identifier;
++- input-order invariance;
++- far same-class matching without a spatial association gate;
++- identical geometry with different classes remains removed + added;
++- explicit empty outputs;
++- out-of-frame rejection.
++
++Every successful helper run verifies two frame-based predict calls, unchanged
++input detection lists, unchanged filtered lists and byte-identical input arrays.
++This checks these pipeline executions, not that every possible detector adapter
++is incapable of mutating pixels. The fake returns scripted detections and is not
++a test of semantic image understanding.
++
++## Apply and verify
++
++Use the existing local test/a-catchup-contracts branch, with P1 retained as its own
++commit. Inspect git status before applying; do not overwrite existing local work.
++Replace <patch-file> with the downloaded patch location.
++
++```bash
++git apply --check <patch-file>
++git apply <patch-file>
++python -m pytest tests/integration/test_detector_b_pipeline.py -ra --tb=short
++ruff check .
++python -m pytest -ra --tb=short
++git diff --check
++```
++
++Generated Python syntax was checked. Repository pytest and Ruff were NOT executed
++during patch preparation. Record actual branch/commit, Python version, commands
++and outcomes after local execution. Do not label this patch passing before that.
++
++After review and successful checks, stage only these two added files and commit
++P2 separately. No push or GitHub changes were performed during preparation.

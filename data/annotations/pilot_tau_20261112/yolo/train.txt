@@ -1,0 +1,12 @@
+data/obj_train_data/p1_smallMove1.png
+data/obj_train_data/p1_smallMove2.png
+data/obj_train_data/p2_midMove1.png
+data/obj_train_data/p2_midMove2.png
+data/obj_train_data/p3_bigMove1.png
+data/obj_train_data/p3_bigMove2.png
+data/obj_train_data/p4_sub1.png
+data/obj_train_data/p4_sub2.png
+data/obj_train_data/p5_add1.png
+data/obj_train_data/p5_add2.png
+data/obj_train_data/p6_control1.png
+data/obj_train_data/p6_control2.png

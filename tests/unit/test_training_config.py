@@ -224,6 +224,25 @@ def test_rejects_test_split_for_checkpoint_selection(tmp_path: Path) -> None:
         load(path, baseline_path=base)
 
 
+@pytest.mark.parametrize("value", [-0.1, True, float("inf"), float("nan")])
+def test_invalid_supported_augmentation_value_raises(tmp_path: Path, value) -> None:
+    payload = json.loads(_baseline(tmp_path).read_text(encoding="utf-8"))
+    payload["augmentation"]["degrees"] = value
+    path = tmp_path / "bad_augmentation.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="finite non-negative number"):
+        load(path)
+
+
+def test_unknown_augmentation_setting_is_rejected(tmp_path: Path) -> None:
+    payload = json.loads(_baseline(tmp_path).read_text(encoding="utf-8"))
+    payload["augmentation"]["not_a_backend_setting"] = 0.1
+    path = tmp_path / "bad_augmentation.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="unknown keys"):
+        load(path)
+
+
 def test_e1_augmentation_loads_with_explicit_baseline(tmp_path: Path) -> None:
     """E1 config has `inherit` markers and requires baseline_path."""
     from pathlib import Path as _P

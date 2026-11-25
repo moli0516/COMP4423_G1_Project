@@ -15,6 +15,7 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
+from deskcheck.training.dataset_layout import parse_supported_dataset_layout
 from deskcheck.training.model_artifact import (
     ModelArtifact,
     sha256_file,
@@ -39,18 +40,20 @@ def _lazy_import_ultralytics():
 
 
 def _check_dataset(dataset_yaml: Path) -> Path:
-    """Verify the dataset.yaml exists and points at real directories."""
+    """Verify the supported images/{train,val} YOLO layout."""
     if not dataset_yaml.exists():
         raise TrainingError(f"dataset.yaml not found: {dataset_yaml}")
 
     text = dataset_yaml.read_text(encoding="utf-8")
-    # Find the 'path:' line; ultralytics resolves paths relative to it
-    import re
-    m = re.search(r"^path:\s*(.+)$", text, flags=re.MULTILINE)
-    if not m:
-        raise TrainingError(f"dataset.yaml missing 'path:' field: {dataset_yaml}")
+    try:
+        layout = parse_supported_dataset_layout(text)
+    except ValueError as exc:
+        raise TrainingError(f"{exc}: {dataset_yaml}") from exc
 
-    dataset_root = Path(m.group(1).strip()).resolve()
+    dataset_root = Path(layout.path)
+    if not dataset_root.is_absolute():
+        dataset_root = dataset_yaml.resolve().parent / dataset_root
+    dataset_root = dataset_root.resolve()
     if not dataset_root.exists():
         raise TrainingError(f"dataset root does not exist: {dataset_root}")
 
@@ -66,7 +69,9 @@ def _run_dir(run_dir: Path) -> Path:
     """Create a unique run directory. Fails if it already has content."""
     # The backend resolves relative project names against its global runs directory.
     run_dir = run_dir.resolve()
-    if run_dir.exists() and any(run_dir.iterdir()):
+    if run_dir.exists() and not run_dir.is_dir():
+        raise TrainingError(f"run_dir is not a directory: {run_dir}")
+    if run_dir.is_dir() and any(run_dir.iterdir()):
         raise TrainingError(
             f"run_dir already has content: {run_dir}. "
             f"Pick a new path or delete the old run."
@@ -194,6 +199,8 @@ def train(
     run_dir: Path,
     dataset_yaml_override: Path | None = None,
     baseline_config_path: Path | None = None,
+    initialization_override: Path | None = None,
+    expected_initialization_sha256: str | None = None,
 ) -> ModelArtifact:
     """Run fine-tuning and return the resulting ModelArtifact.
 
@@ -206,17 +213,36 @@ def train(
 
     cfg = load_config(config_path, baseline_path=baseline_config_path)
 
+    # Load the explicitly bound initialization if supplied. This is the same
+    # byte path forwarded to Ultralytics, with its hash checked before use.
+    initialization = initialization_override.resolve() if initialization_override is not None else None
+    actual_initialization_sha: str | None = None
+    if initialization is not None:
+        if not initialization.is_file():
+            raise TrainingError(f"initialization not found: {initialization}")
+        actual_initialization_sha = sha256_file(initialization)
+        if (expected_initialization_sha256 is not None
+                and actual_initialization_sha.lower() != expected_initialization_sha256.lower()):
+            raise TrainingError("initialization bytes changed before shared trainer execution")
+        model_initialization: str = str(initialization)
+    else:
+        if expected_initialization_sha256 is not None:
+            raise TrainingError("expected initialization hash requires initialization_override")
+        model_initialization = cfg.model["pretrained_weights"]
+
     dataset_yaml = dataset_yaml_override or Path(cfg.data["dataset_yaml"])
     dataset_yaml = _check_dataset(dataset_yaml)
-
     run_dir = _run_dir(run_dir)
 
     YOLO, ultralytics_version = _lazy_import_ultralytics()
-
     resolved_device = _resolve_device(cfg.training["device"])
-
-    # Load pretrained backbone
-    model = YOLO(cfg.model["pretrained_weights"])
+    if initialization is not None:
+        # Recheck after lazy backend loading, immediately before model construction.
+        actual_initialization_sha = sha256_file(initialization)
+        if (expected_initialization_sha256 is not None
+                and actual_initialization_sha.lower() != expected_initialization_sha256.lower()):
+            raise TrainingError("initialization bytes changed before model construction")
+    model = YOLO(model_initialization)
 
     # Run training — all hyperparameters from config
     datetime.now(UTC)
@@ -241,13 +267,8 @@ def train(
         patience=cfg.training["patience"],
         seed=cfg.training["seed"],
         device=resolved_device,
-        # augmentation
-        hsv_h=cfg.augmentation["hsv_h"],
-        hsv_s=cfg.augmentation["hsv_s"],
-        hsv_v=cfg.augmentation["hsv_v"],
-        fliplr=cfg.augmentation["fliplr"],
-        mosaic=cfg.augmentation["mosaic"],
-        scale=cfg.augmentation["scale"],
+        # supported augmentation settings
+        **cfg.augmentation,
         # output location
         project=str(run_dir.parent.resolve()),
         name=run_dir.name,
@@ -278,10 +299,14 @@ def train(
     resolved_outputs = dict(cfg.outputs)
     resolved_outputs["run_dir"] = str(run_dir)
 
+    resolved_model = dict(cfg.model)
+    resolved_model["pretrained_weights"] = model_initialization
+    if actual_initialization_sha is not None:
+        resolved_model["pretrained_weights_sha256"] = actual_initialization_sha
     resolved_config = {
         "experiment_id": cfg.experiment_id,
         "owner": cfg.owner,
-        "model": cfg.model,
+        "model": resolved_model,
         "data": resolved_data,
         "preprocessing": cfg.preprocessing,
         "augmentation": cfg.augmentation,
@@ -313,7 +338,7 @@ def train(
         checkpoint_path=stable_checkpoint,
         checkpoint_sha256=stable_sha,
         architecture=cfg.model["architecture"],
-        pretrained_weights=cfg.model["pretrained_weights"],
+        pretrained_weights=model_initialization,
         class_names=("bottle", "cup", "keyboard", "mouse", "book", "scissors"),
         image_size=cfg.preprocessing["image_size"],
         dataset_yaml=str(dataset_yaml),
