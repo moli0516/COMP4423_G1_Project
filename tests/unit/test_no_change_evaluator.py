@@ -19,10 +19,13 @@ def test_each_change_is_alarm(status):
 
 
 def test_multiple_changes_in_one_pair_count_once():
-    result = NoChangeEvaluator().evaluate(
-        {"p": [{"status": "added"}, {"status": "moved"}]}, ["p"]
-    )
+    result = NoChangeEvaluator().evaluate({"p": [{"status": "added"}, {"status": "moved"}]}, ["p"])
     assert result["false_alarm_pair_count"] == 1
+    assert result["false_positive_event_count"] == 2
+    assert result["false_alarm_pair_rate"] == result["false_alarm_rate"] == 1
+    assert result["false_alarm_rate_unit"] == (
+        "pairs with >=1 predicted change / eligible no-change pairs"
+    )
 
 
 def test_fraction_and_sorted_ids():

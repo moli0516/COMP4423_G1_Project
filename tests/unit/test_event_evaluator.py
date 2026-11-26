@@ -11,11 +11,10 @@ BOX = [0, 0, 2, 2]
 
 def event(status="unchanged", class_id=0, before=None, after=None):
     return {
-        "class_id": class_id, "status": status,
-        "before_box": (before if before is not None else BOX.copy())
-        if status != "added" else None,
-        "after_box": (after if after is not None else BOX.copy())
-        if status != "removed" else None,
+        "class_id": class_id,
+        "status": status,
+        "before_box": (before if before is not None else BOX.copy()) if status != "added" else None,
+        "after_box": (after if after is not None else BOX.copy()) if status != "removed" else None,
     }
 
 
@@ -92,6 +91,18 @@ def test_aggregate_counts_not_pair_f1_average():
     assert result["f1"] == pytest.approx(2 / 3)
 
 
+def test_per_pair_counts_are_saved_without_changing_aggregate_counts():
+    result = EventEvaluator().evaluate(
+        {"correct": [event("added")], "missed": []},
+        {"correct": [event("added")], "missed": [event("added")]},
+    )
+    assert result["per_status"]["added"]["tp"] == 1
+    assert result["per_status"]["added"]["fn"] == 1
+    assert result["per_pair"]["correct"]["per_status"]["added"]["tp"] == 1
+    assert result["per_pair"]["missed"]["per_status"]["added"]["fn"] == 1
+    assert result["per_pair"]["missed"]["macro_f1"] == 0
+
+
 @pytest.mark.parametrize("value", [0, -0.1, 1.1, nan, inf])
 def test_invalid_iou(value):
     with pytest.raises(ValueError):
@@ -121,12 +132,20 @@ def test_duplicate_class_rejected(side):
         score(duplicate if side == "prediction" else [], duplicate if side == "truth" else [])
 
 
-@pytest.mark.parametrize("field, value", [
-    ("status", "unknown"), ("class_id", -1), ("class_id", True),
-    ("before_box", None), ("after_box", [0, 0, 0, 1]),
-    ("after_box", [-1, 0, 1, 1]), ("after_box", [0, 0, nan, 1]),
-    ("after_box", [0, 0, inf, 1]), ("after_box", [0, 1]),
-])
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("status", "unknown"),
+        ("class_id", -1),
+        ("class_id", True),
+        ("before_box", None),
+        ("after_box", [0, 0, 0, 1]),
+        ("after_box", [-1, 0, 1, 1]),
+        ("after_box", [0, 0, nan, 1]),
+        ("after_box", [0, 0, inf, 1]),
+        ("after_box", [0, 1]),
+    ],
+)
 def test_invalid_events(field, value):
     invalid = event()
     invalid[field] = value
@@ -171,3 +190,45 @@ def test_repeated_calls_are_stateless():
     evaluator = EventEvaluator()
     evaluator.evaluate({"p": [event()]}, {"p": [event()]})
     assert evaluator.evaluate({"p": []}, {"p": []})["macro_f1"] == 0
+
+
+def test_primary_metric_is_change_only_macro_and_explicitly_labelled():
+    result = score([event("added")], [event("added")])
+    assert result["primary_metric"] == {
+        "name": "change_only_macro_f1",
+        "role": "primary",
+        "value": result["change_only_macro_f1"],
+        "decision_date": "2026-11-26",
+        "aggregation": "macro over added/removed/moved with a fixed three-status denominator",
+        "zero_division": 0,
+    }
+    assert result["metric_roles"]["change_only_macro_f1"] == "primary"
+    assert result["metric_roles"]["macro_f1"] == "secondary"
+    assert result["metric_roles"]["per_status"] == "secondary"
+    assert result["metric_roles"]["unchanged_status"] == "secondary"
+
+
+def test_change_only_macro_uses_fixed_denominator_for_unsupported_status():
+    result = score([event("added")], [event("added")])
+    removed = result["per_status"]["removed"]
+    assert removed["support"] == 0
+    assert removed["f1"] == 0.0
+    assert "f1" in removed["unavailable_metrics"]
+    assert result["change_only_macro_f1"] == pytest.approx(1 / 3)
+    assert result["primary_metric"]["value"] == pytest.approx(1 / 3)
+
+
+def test_change_only_macro_is_zero_not_unavailable_when_all_change_statuses_empty():
+    result = score([], [])
+    assert result["change_only_macro_f1"] == 0
+    assert result["primary_metric"]["value"] == 0
+    assert all(
+        "f1" in result["per_status"][status]["unavailable_metrics"]
+        for status in EventEvaluator.CHANGE_STATUSES
+    )
+
+
+def test_no_micro_aggregation_is_claimed():
+    result = score([event("added")], [event("added")])
+    assert result["micro_metric"]["state"] == "unavailable"
+    assert "no micro aggregation" in result["micro_metric"]["reason"]

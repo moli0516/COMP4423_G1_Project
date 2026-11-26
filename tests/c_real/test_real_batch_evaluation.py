@@ -31,19 +31,21 @@ class RealBatchEvaluationTests(unittest.TestCase):
         self.checkpoint_sha = hashlib.sha256(self.weights.read_bytes()).hexdigest()
         self.settings_file = self.folder / "real.json"
         self.settings_file.write_text(
-            json.dumps({
-                "schema_version": "1.0",
-                "mode": "real",
-                "checkpoint_path": "best.pt",
-                "checkpoint_sha256": self.checkpoint_sha,
-                "model_origin": "STUB-ONLY",
-                "confidence_threshold": 0.25,
-                "movement_threshold": 0.05,
-                "nms_iou_threshold": 0.5,
-                "imgsz": 640,
-                "rules_version": "TEST-NOT-FROZEN",
-                "class_names": ["bottle", "cup", "keyboard", "mouse", "book", "scissors"],
-            }),
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "mode": "real",
+                    "checkpoint_path": "best.pt",
+                    "checkpoint_sha256": self.checkpoint_sha,
+                    "model_origin": "STUB-ONLY",
+                    "confidence_threshold": 0.25,
+                    "movement_threshold": 0.05,
+                    "nms_iou_threshold": 0.5,
+                    "imgsz": 640,
+                    "rules_version": "TEST-NOT-FROZEN",
+                    "class_names": ["bottle", "cup", "keyboard", "mouse", "book", "scissors"],
+                }
+            ),
             encoding="utf-8",
         )
         before = np.zeros((120, 160, 3), dtype=np.uint8)
@@ -57,16 +59,22 @@ class RealBatchEvaluationTests(unittest.TestCase):
         box_cup = [40, 10, 55, 25]
         self.truth = {
             "movement": [
-                {"class_id": 0, "status": "moved",
-                 "before_box": box_bottle_old, "after_box": box_bottle_new},
-                {"class_id": 1, "status": "unchanged",
-                 "before_box": box_cup, "after_box": box_cup},
+                {
+                    "class_id": 0,
+                    "status": "moved",
+                    "before_box": box_bottle_old,
+                    "after_box": box_bottle_new,
+                },
+                {"class_id": 1, "status": "unchanged", "before_box": box_cup, "after_box": box_cup},
             ],
             "control": [
-                {"class_id": 0, "status": "unchanged",
-                 "before_box": box_bottle_old, "after_box": box_bottle_old},
-                {"class_id": 1, "status": "unchanged",
-                 "before_box": box_cup, "after_box": box_cup},
+                {
+                    "class_id": 0,
+                    "status": "unchanged",
+                    "before_box": box_bottle_old,
+                    "after_box": box_bottle_old,
+                },
+                {"class_id": 1, "status": "unchanged", "before_box": box_cup, "after_box": box_cup},
             ],
         }
         self.manifest = {
@@ -74,10 +82,8 @@ class RealBatchEvaluationTests(unittest.TestCase):
             "dataset_release": "STUB-not-a-real-dataset",
             "split": "val",
             "pairs": [
-                {"pair_id": "movement", "before_path": "before.png",
-                 "after_path": "after.png"},
-                {"pair_id": "control", "before_path": "before.png",
-                 "after_path": "before.png"},
+                {"pair_id": "movement", "before_path": "before.png", "after_path": "after.png"},
+                {"pair_id": "control", "before_path": "before.png", "after_path": "before.png"},
             ],
             "ground_truth": self.truth,
             "eligible_no_change_pair_ids": ["control"],
@@ -99,8 +105,15 @@ class RealBatchEvaluationTests(unittest.TestCase):
         return module
 
     def call_cli(self, module):
-        argv = ["evaluate_real_pairs.py", "--config", str(self.settings_file),
-                "--manifest", str(self.manifest_file), "--output", str(self.output)]
+        argv = [
+            "evaluate_real_pairs.py",
+            "--config",
+            str(self.settings_file),
+            "--manifest",
+            str(self.manifest_file),
+            "--output",
+            str(self.output),
+        ]
         with patch.object(sys, "argv", argv):
             return module.main()
 
@@ -113,14 +126,18 @@ class RealBatchEvaluationTests(unittest.TestCase):
         self.assertEqual(len(model.calls), 4)
         self.assertEqual(
             {path.name for path in self.output.iterdir()},
-            {"predictions.json", "metrics.json", "run_metadata.json"},
+            {
+                "predictions.json",
+                "ground_truth.json",
+                "image_detections.json",
+                "metrics.json",
+                "run_metadata.json",
+            },
         )
         predictions = json.loads((self.output / "predictions.json").read_text())
         metadata = json.loads((self.output / "run_metadata.json").read_text())
-        self.assertEqual([e["status"] for e in predictions["movement"]],
-                         ["moved", "unchanged"])
-        self.assertEqual([e["status"] for e in predictions["control"]],
-                         ["unchanged", "unchanged"])
+        self.assertEqual([e["status"] for e in predictions["movement"]], ["moved", "unchanged"])
+        self.assertEqual([e["status"] for e in predictions["control"]], ["unchanged", "unchanged"])
         self.assertEqual(metadata["pair_count"], 2)
         self.assertEqual(metadata["provenance"]["checkpoint_sha256"], self.checkpoint_sha)
         self.assertEqual(metadata["provenance"]["split"], "val")
@@ -129,19 +146,46 @@ class RealBatchEvaluationTests(unittest.TestCase):
             hashlib.sha256(self.manifest_file.read_bytes()).hexdigest(),
         )
         self.assertEqual(metadata["provenance"]["mode"], "real")
-        self.assertEqual(metadata["metric_scope"], "localized events and no-change alarms; excludes detector AP")
+        self.assertEqual(metadata["provenance"]["python_version"], sys.version.split()[0])
+        run_id = metadata["provenance"]["run_id"]
+        self.assertTrue(run_id.startswith(f"val-output-{self.checkpoint_sha[:12]}-"))
+        self.assertEqual(metadata["run_id"], run_id)
+        self.assertEqual(metadata["primary_downstream_metric"]["role"], "primary")
+        self.assertEqual(metadata["primary_downstream_metric"]["name"], "change_only_macro_f1")
+        self.assertEqual(
+            metadata["metric_scope"], "localized events and no-change alarms; excludes detector AP"
+        )
+        saved_truth = json.loads((self.output / "ground_truth.json").read_text())
+        self.assertEqual(saved_truth, self.truth)
+        detections = json.loads((self.output / "image_detections.json").read_text())
+        self.assertEqual(set(detections), {"movement", "control"})
+        self.assertEqual(
+            json.loads((self.output / "metrics.json").read_text())["events"]["pair_count"],
+            2,
+        )
         self.assertFalse((self.output / "result.json").exists())
 
     def test_same_checkpoint_config_and_pair_match_across_real_entrypoints(self):
         before, after = self.folder / "before.png", self.folder / "after.png"
         cli_output = self.folder / "single"
         argv = [
-            "predict_real_pair.py", "--config", str(self.settings_file),
-            "--before", str(before), "--after", str(after),
-            "--pair-id", "movement", "--output", str(cli_output),
+            "predict_real_pair.py",
+            "--config",
+            str(self.settings_file),
+            "--before",
+            str(before),
+            "--after",
+            str(after),
+            "--pair-id",
+            "movement",
+            "--output",
+            str(cli_output),
         ]
         model = Model()
-        with model.installed(), patch.dict(os.environ, {"DESKCHECK_REAL_CONFIG": str(self.settings_file)}):
+        with (
+            model.installed(),
+            patch.dict(os.environ, {"DESKCHECK_REAL_CONFIG": str(self.settings_file)}),
+        ):
             with patch.object(sys, "argv", argv):
                 self.assertEqual(self.load_cli("predict_real_pair").main(), 0)
             self.assertEqual(self.call_cli(self.load_cli()), 0)
@@ -159,8 +203,15 @@ class RealBatchEvaluationTests(unittest.TestCase):
         batch = json.loads((self.output / "predictions.json").read_bytes())
         self.assertEqual(batch["movement"], single["records"])
         provenance = json.loads((self.output / "run_metadata.json").read_bytes())["provenance"]
-        for key in ("config_sha256", "checkpoint_sha256", "confidence_threshold",
-                    "nms_iou_threshold", "imgsz", "movement_threshold", "rules_version"):
+        for key in (
+            "config_sha256",
+            "checkpoint_sha256",
+            "confidence_threshold",
+            "nms_iou_threshold",
+            "imgsz",
+            "movement_threshold",
+            "rules_version",
+        ):
             self.assertEqual(provenance[key], single["metadata"][key])
         for name, content in app.session_state["c_bundle"]["downloads"].items():
             self.assertEqual(content, (cli_output / name).read_bytes(), name)

@@ -28,6 +28,7 @@ class NoChangeEvaluator:
         if missing:
             raise ValueError(f"Missing eligible results: {sorted(missing)}")
         alarm_ids = []
+        false_positive_event_count = 0
         for pair_id in sorted(eligible_pair_ids):
             events = results[pair_id]
             if not isinstance(events, list):
@@ -40,12 +41,18 @@ class NoChangeEvaluator:
                     raise ValueError("Missing or unknown event status")
                 if event["status"] != "unchanged":
                     alarm = True
+                    false_positive_event_count += 1
             if alarm:
                 alarm_ids.append(pair_id)
+        false_alarm_pair_count = len(alarm_ids)
+        false_alarm_pair_rate = false_alarm_pair_count / len(eligible_pair_ids)
         return {
             "protocol_version": "independent-no-change-v1",
             "eligible_pair_count": len(eligible_pair_ids),
-            "false_alarm_pair_count": len(alarm_ids),
-            "false_alarm_rate": len(alarm_ids) / len(eligible_pair_ids),
+            "false_positive_event_count": false_positive_event_count,
+            "false_alarm_pair_count": false_alarm_pair_count,
+            "false_alarm_pair_rate": false_alarm_pair_rate,
+            "false_alarm_rate": false_alarm_pair_rate,
+            "false_alarm_rate_unit": "pairs with >=1 predicted change / eligible no-change pairs",
             "false_alarm_pair_ids": alarm_ids,
         }

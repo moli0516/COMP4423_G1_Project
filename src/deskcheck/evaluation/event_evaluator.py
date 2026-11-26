@@ -2,9 +2,19 @@
 
 from math import isfinite
 
+PRIMARY_METRIC_NAME = "change_only_macro_f1"
+PRIMARY_METRIC_DECISION_DATE = "2026-11-26"
+
 
 class EventEvaluator:
-    """Score one event per class per pair using status-independent localization."""
+    """Score one event per class per pair using status-independent localization.
+
+    Owner decision (2026-11-26): the primary downstream metric is the macro F1
+    over the three change statuses. The existing zero-division convention is
+    reused unchanged: a status with no ground truth and no predicted events has
+    F1 = 0.0 (not undefined), and both macro variants divide by the fixed status
+    count, so an absent status contributes 0.0 rather than being dropped.
+    """
 
     STATUSES = ("added", "removed", "moved", "unchanged")
     CHANGE_STATUSES = ("added", "removed", "moved")
@@ -30,34 +40,41 @@ class EventEvaluator:
         if predicted.keys() != ground_truth.keys():
             raise ValueError("Prediction and ground-truth pair IDs must match exactly")
         counts = {status: {"tp": 0, "fp": 0, "fn": 0} for status in self.STATUSES}
+        per_pair_counts = {}
         for pair_id in sorted(ground_truth):
             predictions = self._index(predicted[pair_id])
             truths = self._index(ground_truth[pair_id])
+            pair_counts = {status: {"tp": 0, "fp": 0, "fn": 0} for status in self.STATUSES}
             for class_id in sorted(predictions.keys() | truths.keys()):
                 prediction, truth = predictions.get(class_id), truths.get(class_id)
                 if prediction is not None and truth is not None:
-                    correct = (
-                        prediction["status"] == truth["status"]
-                        and self._localized(prediction, truth)
+                    correct = prediction["status"] == truth["status"] and self._localized(
+                        prediction, truth
                     )
                     if correct:
                         counts[truth["status"]]["tp"] += 1
+                        pair_counts[truth["status"]]["tp"] += 1
                     else:
                         counts[prediction["status"]]["fp"] += 1
                         counts[truth["status"]]["fn"] += 1
+                        pair_counts[prediction["status"]]["fp"] += 1
+                        pair_counts[truth["status"]]["fn"] += 1
                 elif prediction is not None:
                     counts[prediction["status"]]["fp"] += 1
+                    pair_counts[prediction["status"]]["fp"] += 1
                 elif truth is not None:
                     counts[truth["status"]]["fn"] += 1
-        per_status = {}
-        for status, values in counts.items():
-            tp, fp, fn = values["tp"], values["fp"], values["fn"]
-            per_status[status] = {
-                **values,
-                "support": tp + fn,
-                "precision": tp / (tp + fp) if tp + fp else 0.0,
-                "recall": tp / (tp + fn) if tp + fn else 0.0,
-                "f1": 2 * tp / (2 * tp + fp + fn) if 2 * tp + fp + fn else 0.0,
+                    pair_counts[truth["status"]]["fn"] += 1
+            per_pair_counts[pair_id] = pair_counts
+
+        per_status, macro_f1, change_only_macro_f1 = self._summarize(counts)
+        per_pair = {}
+        for pair_id, pair_values in per_pair_counts.items():
+            pair_per_status, pair_macro_f1, pair_change_only_macro_f1 = self._summarize(pair_values)
+            per_pair[pair_id] = {
+                "per_status": pair_per_status,
+                "macro_f1": pair_macro_f1,
+                "change_only_macro_f1": pair_change_only_macro_f1,
             }
         return {
             "protocol_version": "basic-localized-events-v1",
@@ -65,12 +82,61 @@ class EventEvaluator:
             "iou_threshold": self.iou_threshold,
             "zero_division": 0,
             "per_status": per_status,
-            "macro_f1": sum(per_status[s]["f1"] for s in self.STATUSES) / 4,
-            "change_only_macro_f1": sum(
-                per_status[s]["f1"] for s in self.CHANGE_STATUSES
-            ) / 3,
+            "macro_f1": macro_f1,
+            "change_only_macro_f1": change_only_macro_f1,
+            "primary_metric": {
+                "name": PRIMARY_METRIC_NAME,
+                "role": "primary",
+                "value": change_only_macro_f1,
+                "decision_date": PRIMARY_METRIC_DECISION_DATE,
+                "aggregation": (
+                    "macro over added/removed/moved with a fixed three-status denominator"
+                ),
+                "zero_division": 0,
+            },
+            "metric_roles": {
+                "change_only_macro_f1": "primary",
+                "macro_f1": "secondary",
+                "per_status": "secondary",
+                "unchanged_status": "secondary",
+            },
+            "micro_metric": {
+                "state": "unavailable",
+                "reason": (
+                    "The existing localized-event evaluator defines no micro "
+                    "aggregation; no new aggregation rule was introduced"
+                ),
+            },
             "averaging": "fixed status set; absent-status F1 is zero",
+            "per_pair": per_pair,
         }
+
+    @classmethod
+    def _summarize(cls, counts: dict) -> tuple[dict, float, float]:
+        per_status = {}
+        for status in cls.STATUSES:
+            values = counts[status]
+            tp, fp, fn = values["tp"], values["fp"], values["fn"]
+            unavailable = []
+            if tp + fp == 0:
+                unavailable.append("precision")
+            if tp + fn == 0:
+                unavailable.append("recall")
+            if 2 * tp + fp + fn == 0:
+                unavailable.append("f1")
+            per_status[status] = {
+                **values,
+                "support": tp + fn,
+                "precision": tp / (tp + fp) if tp + fp else 0.0,
+                "recall": tp / (tp + fn) if tp + fn else 0.0,
+                "f1": 2 * tp / (2 * tp + fp + fn) if 2 * tp + fp + fn else 0.0,
+                "unavailable_metrics": unavailable,
+            }
+        return (
+            per_status,
+            sum(per_status[s]["f1"] for s in cls.STATUSES) / len(cls.STATUSES),
+            sum(per_status[s]["f1"] for s in cls.CHANGE_STATUSES) / len(cls.CHANGE_STATUSES),
+        )
 
     @staticmethod
     def _validate_mapping(value: dict) -> None:
@@ -100,8 +166,10 @@ class EventEvaluator:
                 raise ValueError("Unknown event status")
             before, after = event["before_box"], event["after_box"]
             expected_presence = {
-                "added": (False, True), "removed": (True, False),
-                "moved": (True, True), "unchanged": (True, True),
+                "added": (False, True),
+                "removed": (True, False),
+                "moved": (True, True),
+                "unchanged": (True, True),
             }[status]
             if (before is not None, after is not None) != expected_presence:
                 raise ValueError("Status and box presence disagree")
@@ -116,8 +184,7 @@ class EventEvaluator:
         if not isinstance(box, (list, tuple)) or len(box) != 4:
             raise ValueError("Box must have four xyxy coordinates")
         if any(
-            isinstance(v, bool) or not isinstance(v, (int, float)) or not isfinite(v)
-            for v in box
+            isinstance(v, bool) or not isinstance(v, (int, float)) or not isfinite(v) for v in box
         ):
             raise ValueError("Box coordinates must be finite numbers")
         x1, y1, x2, y2 = box
@@ -125,8 +192,11 @@ class EventEvaluator:
             raise ValueError("Box must have nonnegative coordinates and positive area")
 
     def _localized(self, prediction: dict, truth: dict) -> bool:
-        shared = [side for side in ("before_box", "after_box")
-                  if prediction[side] is not None and truth[side] is not None]
+        shared = [
+            side
+            for side in ("before_box", "after_box")
+            if prediction[side] is not None and truth[side] is not None
+        ]
         return bool(shared) and all(
             self._iou(prediction[side], truth[side]) >= self.iou_threshold for side in shared
         )
@@ -136,6 +206,5 @@ class EventEvaluator:
         intersection = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(
             0, min(a[3], b[3]) - max(a[1], b[1])
         )
-        union = ((a[2] - a[0]) * (a[3] - a[1])
-                 + (b[2] - b[0]) * (b[3] - b[1]) - intersection)
+        union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - intersection
         return intersection / union

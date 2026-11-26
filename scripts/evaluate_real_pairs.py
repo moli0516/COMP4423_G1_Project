@@ -6,7 +6,10 @@ No training, auto-download, fake fallback, metric duplication or overwrite.
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
+import platform
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,6 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from deskcheck.application.comparison_service import ComparisonService
 from deskcheck.application.real_settings import RealSettings
 from deskcheck.evaluation.evaluation_runner import EvaluationRunner
+from deskcheck.evaluation.failure_record import build_rerun_link, new_run_id
 
 REQUIRED = {
     "schema_version",
@@ -25,6 +29,45 @@ REQUIRED = {
     "ground_truth",
     "eligible_no_change_pair_ids",
 }
+OPTIONAL_SOURCE_IDENTITIES = {
+    "source_annotations_sha256",
+    "source_split_manifest_sha256",
+}
+EVALUATION_PACKAGES = ("numpy", "Pillow", "ultralytics", "torch")
+
+
+def _source_identity() -> dict:
+    try:
+        revision = subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        status = subprocess.run(
+            ["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=all"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.strip() if error.stderr else str(error)
+        raise RuntimeError(f"Could not capture evaluation source identity: {detail}") from error
+    return {
+        "source_revision": revision,
+        "source_dirty": bool(status),
+        "source_dirty_paths": sorted(line[3:] for line in status),
+    }
+
+
+def _package_versions() -> dict:
+    versions = {}
+    for package in EVALUATION_PACKAGES:
+        try:
+            versions[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            versions[package] = None
+    return versions
 
 
 def _reject_duplicate_keys(pairs):
@@ -52,7 +95,13 @@ def load_manifest(source: Path):
         object_pairs_hook=_reject_duplicate_keys,
         parse_constant=_reject_nonfinite,
     )
-    if not isinstance(data, dict) or set(data) != REQUIRED:
+    if (
+        not isinstance(data, dict)
+        or not REQUIRED <= set(data)
+        or set(data) - REQUIRED - OPTIONAL_SOURCE_IDENTITIES
+        or bool(set(data) & OPTIONAL_SOURCE_IDENTITIES)
+        != (set(data) & OPTIONAL_SOURCE_IDENTITIES == OPTIONAL_SOURCE_IDENTITIES)
+    ):
         raise ValueError("Evaluation manifest has missing or unexpected fields")
     if data["schema_version"] != "1.0" or data["split"] not in ("val", "test"):
         raise ValueError("Evaluation manifest requires schema 1.0 and explicit val/test split")
@@ -88,11 +137,26 @@ def load_manifest(source: Path):
             if not local.is_file():
                 raise ValueError(f"Image source is not a file: {local}")
             item[field] = local
+            digest = hashlib.sha256()
+            with local.open("rb") as image_file:
+                for block in iter(lambda: image_file.read(1024 * 1024), b""):
+                    digest.update(block)
+            item[field.replace("_path", "_sha256")] = digest.hexdigest()
         validated_pairs.append(item)
     if set(truth) != ids or not set(eligible).issubset(ids) or len(set(eligible)) != len(eligible):
         raise ValueError("Ground truth / no-change IDs must match the complete pair inventory")
     if any(not isinstance(events, list) for events in truth.values()):
         raise ValueError("Ground truth must contain explicit event lists")
+    source_identities = {}
+    for key in OPTIONAL_SOURCE_IDENTITIES:
+        digest = data.get(key)
+        if digest is not None and (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError(f"{key} must be a lowercase SHA-256 digest")
+        source_identities[key] = digest
     return {
         "pairs": validated_pairs,
         "ground_truth": truth,
@@ -100,6 +164,7 @@ def load_manifest(source: Path):
         "split": data["split"],
         "dataset_release": data["dataset_release"],
         "manifest_sha256": hashlib.sha256(content).hexdigest(),
+        **source_identities,
     }
 
 
@@ -108,10 +173,35 @@ def main() -> int:
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--failure-output",
+        type=Path,
+        default=None,
+        help="New directory for a failure record; defaults beside --output",
+    )
+    parser.add_argument(
+        "--rerun-of",
+        type=Path,
+        action="append",
+        default=[],
+        help="Earlier failure_record.json this run replaces; repeatable",
+    )
+    parser.add_argument("--rerun-reason", default=None, help="Free-text reason for the rerun")
     args = parser.parse_args()
     target = args.output.absolute()
     if target.exists() or target.is_symlink():
         print(f"Refusing to overwrite evaluation: {target}", file=sys.stderr)
+        return 2
+    if args.rerun_of and not (args.rerun_reason and args.rerun_reason.strip()):
+        print("--rerun-reason is required with --rerun-of", file=sys.stderr)
+        return 2
+    failure_output = args.failure_output or target.with_name(
+        f"{target.name}.failure-{new_run_id()}"
+    )
+    try:
+        rerun_of = [build_rerun_link(path, args.rerun_reason) for path in args.rerun_of]
+    except (OSError, ValueError, TypeError) as error:
+        print(f"Rerun link is invalid: {error}", file=sys.stderr)
         return 2
     try:
         manifest = load_manifest(args.manifest.resolve(strict=True))
@@ -119,6 +209,10 @@ def main() -> int:
         service = ComparisonService.for_real(settings)
         provenance = {
             "mode": "real",
+            "run_id": (
+                f"{manifest['split']}-{target.name}-{settings.checkpoint_sha256[:12]}-"
+                f"{new_run_id()[:8]}"
+            ),
             "config_sha256": settings.config_sha256,
             "checkpoint_sha256": settings.checkpoint_sha256,
             "model_origin": settings.model_origin,
@@ -130,6 +224,12 @@ def main() -> int:
             "split": manifest["split"],
             "dataset_release": manifest["dataset_release"],
             "manifest_sha256": manifest["manifest_sha256"],
+            "source_annotations_sha256": manifest["source_annotations_sha256"],
+            "source_split_manifest_sha256": manifest["source_split_manifest_sha256"],
+            "python_version": platform.python_version(),
+            "package_versions": _package_versions(),
+            "command": sys.argv,
+            **_source_identity(),
         }
         result = EvaluationRunner(service).run(
             pairs=manifest["pairs"],
@@ -137,6 +237,8 @@ def main() -> int:
             eligible_no_change_pair_ids=manifest["eligible_no_change_pair_ids"],
             output_dir=target,
             metadata=provenance,
+            failure_output_dir=failure_output,
+            rerun_of=rerun_of,
         )
         print(
             f"mode=real split={manifest['split']} pairs={result['run_metadata']['pair_count']} "
