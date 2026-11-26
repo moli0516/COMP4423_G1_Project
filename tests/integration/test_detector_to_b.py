@@ -15,9 +15,26 @@ from deskcheck.domain.image_frame import ImageFrame
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHECKPOINT = REPO_ROOT / "runs" / "experiments" / "E0_baseline" / "best.pt"
-DATASET_PHOTO = Path(
-    "/home/wyc/Documents/CV Group/data/formal_photos/G01P1_before.jpg"
-)
+import os
+
+
+# Locate the integration photo via env var (preferred) or fallback to common locations.
+# Tests skip cleanly when the photo is not found.
+def _find_photo() -> Path | None:
+    env_path = os.environ.get("DESKCHECK_TEST_PHOTO")
+    if env_path and Path(env_path).exists():
+        return Path(env_path)
+    candidates = [
+        Path("data/formal_photos/G01P1_before.jpg"),
+        Path.home() / "Documents" / "CV Group" / "data" / "formal_photos" / "G01P1_before.jpg",
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+DATASET_PHOTO = _find_photo()
+
 
 
 def _load_image_as_frame(path: Path) -> ImageFrame:
@@ -33,8 +50,8 @@ def _load_image_as_frame(path: Path) -> ImageFrame:
     reason="E0 checkpoint not present (runs/experiments/E0_baseline/best.pt)",
 )
 @pytest.mark.skipif(
-    not DATASET_PHOTO.exists(),
-    reason="formal dataset photo not present at expected path",
+    DATASET_PHOTO is None,
+    reason="formal dataset photo not found (set DESKCHECK_TEST_PHOTO env var or place at data/formal_photos/G01P1_before.jpg)",
 )
 def test_real_detector_returns_canonical_detections() -> None:
     """End-to-end smoke: real image → YoloDetector → list[Detection]."""
@@ -47,6 +64,7 @@ def test_real_detector_returns_canonical_detections() -> None:
         device="0",
     )
     detector = YoloDetector(cfg)
+    assert DATASET_PHOTO is not None  # skipif guarantees this
     frame = _load_image_as_frame(DATASET_PHOTO)
     dets = detector.predict(frame)
 
