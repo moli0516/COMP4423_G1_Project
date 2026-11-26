@@ -9,7 +9,6 @@ from pathlib import Path
 
 from PIL import Image
 
-
 CLASSES = ["bottle", "cup", "keyboard", "mouse", "book", "scissors"]
 ALL_CLASSES = set(range(len(CLASSES)))
 
