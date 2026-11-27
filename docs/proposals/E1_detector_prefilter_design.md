@@ -6,6 +6,8 @@ A/B sign-off before any implementation.**
 
 Reviewed HEAD: `b2b1e5b8af04f0ee8d63658cfee9c10bd5b37e2a` (branch `experiment/E1`).
 
+**Update (2026-11-28):** B decided that P1 and P2 are out of scope for the course submission and will not be implemented. This document is kept as a design record only.
+
 ---
 
 ## 1. Problem this design solves
@@ -21,17 +23,18 @@ pre-filter detections are persisted and approved.
 
 ## 2. Where raw detections actually exist
 
-| Stage | Location | What exists at that point |
-|---|---|---|
-| Backend predict (conf + NMS) | `src/deskcheck/detection/yolo_detector.py:127-134` | Ultralytics result after confidence filtering and NMS at the configured operating point |
-| Class mapping | `src/deskcheck/detection/yolo_detector.py:162-168` | Non-canonical classes are dropped (`continue`); canonical ids assigned |
-| Clamp / degenerate drop | `src/deskcheck/detection/yolo_detector.py:175-181` | Boxes clipped to the image; degenerate boxes dropped |
-| Deterministic sort | `src/deskcheck/detection/yolo_detector.py:192-193` | Ordered by class, then descending confidence, then detection id |
-| **Candidate save point** | `src/deskcheck/application/comparison_service.py:62` | `raw = self._detector.predict(frame)` — full adapter output, still pre-B-filter |
-| B confidence + one-per-class | `src/deskcheck/application/comparison_service.py:63` → `src/deskcheck/detection/detection_filter.py:36,38-41` | `filtered = self._filter.apply(raw)`; keeps one detection per class |
-| Matcher / change analysis | `src/deskcheck/application/comparison_service.py:72` | Uses the filtered set only |
-| Current transport | `src/deskcheck/application/comparison_service.py:103-104,106` | Saves `selected` (post-filter) with `prediction_scope: post_B_filter` |
-| Runner persistence | `src/deskcheck/evaluation/evaluation_runner.py:204-213,253-255,278-279` | Writes `image_detections.json` and the `image_detection_evidence` label |
+
+| Stage                        | Location                                                                                                       | What exists at that point                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Backend predict (conf + NMS) | `src/deskcheck/detection/yolo_detector.py:127-134`                                                             | Ultralytics result after confidence filtering and NMS at the configured operating point |
+| Class mapping                | `src/deskcheck/detection/yolo_detector.py:162-168`                                                             | Non-canonical classes are dropped (`continue`); canonical ids assigned                  |
+| Clamp / degenerate drop      | `src/deskcheck/detection/yolo_detector.py:175-181`                                                             | Boxes clipped to the image; degenerate boxes dropped                                    |
+| Deterministic sort           | `src/deskcheck/detection/yolo_detector.py:192-193`                                                             | Ordered by class, then descending confidence, then detection id                         |
+| **Candidate save point**     | `src/deskcheck/application/comparison_service.py:62`                                                           | `raw = self._detector.predict(frame)` — full adapter output, still pre-B-filter        |
+| B confidence + one-per-class | `src/deskcheck/application/comparison_service.py:63` → `src/deskcheck/detection/detection_filter.py:36,38-41` | `filtered = self._filter.apply(raw)`; keeps one detection per class                     |
+| Matcher / change analysis    | `src/deskcheck/application/comparison_service.py:72`                                                           | Uses the filtered set only                                                              |
+| Current transport            | `src/deskcheck/application/comparison_service.py:103-104,106`                                                  | Saves`selected` (post-filter) with `prediction_scope: post_B_filter`                    |
+| Runner persistence           | `src/deskcheck/evaluation/evaluation_runner.py:204-213,253-255,278-279`                                        | Writes`image_detections.json` and the `image_detection_evidence` label                  |
 
 `compare_frames` therefore already holds the exact object a detector metric needs:
 the `raw` list from line 62, before line 63. No new inference is required to
@@ -199,20 +202,20 @@ window is approved.
 
 ## 5. Files and interfaces that would change
 
-| File / interface | Change | Owner / sign-off |
-|---|---|---|
-| `src/deskcheck/application/comparison_service.py` | Add additive `before_detector_detections` / `after_detector_detections` arrays carrying the line-62 `raw` objects, plus a `detector_prediction_scope` metadata key. Existing `before_detections` / `after_detections` keys, ordering and `prediction_scope` are unchanged. | C implements; **A/B sign-off** because the shared result contract is extended |
-| `src/deskcheck/application/result_serializer.py` | Validate and pass through the new arrays for the JSON bundle only (event CSV unchanged). | C; **B sign-off** if B consumes the bundle |
-| `src/deskcheck/evaluation/evaluation_runner.py` | When the service supplies raw arrays, write `detector_predictions_raw.json`, and record `detector_prediction_evidence` + `detector_predictions_sha256` in `run_metadata.json`. Also persist the comparison service's per-result `prediction_scope`, which is currently dropped, so an evaluator can cross-check per-pair scope instead of only the run-level label. Never derive raw arrays from `image_detections.json`. | **B sign-off** |
-| `src/deskcheck/detection/yolo_detector.py` | Only for P2: expose backend rows (class name, raw box, dropped-class counts) without changing the default `predict` contract. | **A sign-off** |
-| New `src/deskcheck/evaluation/detector_metric_evaluator.py` | Detector-only path reading only the raw artifact; reuses the shared matcher. | C proposes; **A/B sign-off** on scope wording |
-| New `scripts/evaluate_detector_metric.py` | CLI for the detector-only path (no model loading). | C |
-| `docs/C_DETECTOR_PREDICTIONS_HANDOFF.md` | Update the draft contract to reference the new artifact. | C edits after A/B review |
-| Tests: `tests/c_fake_first/`, `tests/c_real/test_real_batch_evaluation.py`, `tests/integration/test_evaluation_runner.py` | Add raw-array assertions; keep post-filter assertions. | C |
+
+| File / interface                                                                                                         | Change                                                                                                                                                                                                                                                                                                                                                                                                                   | Owner / sign-off                                                             |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| `src/deskcheck/application/comparison_service.py`                                                                        | Add additive`before_detector_detections` / `after_detector_detections` arrays carrying the line-62 `raw` objects, plus a `detector_prediction_scope` metadata key. Existing `before_detections` / `after_detections` keys, ordering and `prediction_scope` are unchanged.                                                                                                                                                | C implements;**A/B sign-off** because the shared result contract is extended |
+| `src/deskcheck/application/result_serializer.py`                                                                         | Validate and pass through the new arrays for the JSON bundle only (event CSV unchanged).                                                                                                                                                                                                                                                                                                                                 | C;**B sign-off** if B consumes the bundle                                    |
+| `src/deskcheck/evaluation/evaluation_runner.py`                                                                          | When the service supplies raw arrays, write`detector_predictions_raw.json`, and record `detector_prediction_evidence` + `detector_predictions_sha256` in `run_metadata.json`. Also persist the comparison service's per-result `prediction_scope`, which is currently dropped, so an evaluator can cross-check per-pair scope instead of only the run-level label. Never derive raw arrays from `image_detections.json`. | **B sign-off**                                                               |
+| `src/deskcheck/detection/yolo_detector.py`                                                                               | Only for P2: expose backend rows (class name, raw box, dropped-class counts) without changing the default`predict` contract.                                                                                                                                                                                                                                                                                             | **A sign-off**                                                               |
+| New`src/deskcheck/evaluation/detector_metric_evaluator.py`                                                               | Detector-only path reading only the raw artifact; reuses the shared matcher.                                                                                                                                                                                                                                                                                                                                             | C proposes;**A/B sign-off** on scope wording                                 |
+| New`scripts/evaluate_detector_metric.py`                                                                                 | CLI for the detector-only path (no model loading).                                                                                                                                                                                                                                                                                                                                                                       | C                                                                            |
+| `docs/C_DETECTOR_PREDICTIONS_HANDOFF.md`                                                                                 | Update the draft contract to reference the new artifact.                                                                                                                                                                                                                                                                                                                                                                 | C edits after A/B review                                                     |
+| Tests:`tests/c_fake_first/`, `tests/c_real/test_real_batch_evaluation.py`, `tests/integration/test_evaluation_runner.py` | Add raw-array assertions; keep post-filter assertions.                                                                                                                                                                                                                                                                                                                                                                   | C                                                                            |
 
 Refactor to reuse matching code: extract the pure helper
-`match_detections_to_ground_truth(detections, ground_truth, iou_threshold) ->
-outcomes` from `application_pipeline_evaluator.py` into a shared module (for
+`match_detections_to_ground_truth(detections, ground_truth, iou_threshold) -> outcomes` from `application_pipeline_evaluator.py` into a shared module (for
 example `src/deskcheck/evaluation/detection_matching.py`) with **no behavioural
 change**, then let both evaluators call it. This keeps a single matching
 implementation, satisfies "reuse existing interfaces", and is covered by moving
@@ -220,26 +223,27 @@ the existing matching tests unchanged.
 
 ### 5.1 Alternatives for the artifact location (options only — not decided)
 
-| Option | Description | Trade-offs |
-|---|---|---|
-| L1 — run directory (current recommendation) | `detector_predictions_raw.json` sits beside the run's other artifacts | Same lifecycle, one directory to archive; the run directory grows; deleting a run deletes its detector evidence with it |
-| L2 — sibling evidence directory | e.g. `<run-dir>.detector/` keyed by the same run id | Clear separation between event and detector evidence; two paths must be kept together when archiving; more ways to orphan one half |
-| L3 — separate evidence store | A dedicated evidence root indexed by run id | Best for long-term retention and access control; needs an index, a lookup rule in the evaluator, and a policy for missing entries |
+
+| Option                                       | Description                                                           | Trade-offs                                                                                                                         |
+| -------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| L1 — run directory (current recommendation) | `detector_predictions_raw.json` sits beside the run's other artifacts | Same lifecycle, one directory to archive; the run directory grows; deleting a run deletes its detector evidence with it            |
+| L2 — sibling evidence directory             | e.g.`<run-dir>.detector/` keyed by the same run id                    | Clear separation between event and detector evidence; two paths must be kept together when archiving; more ways to orphan one half |
+| L3 — separate evidence store                | A dedicated evidence root indexed by run id                           | Best for long-term retention and access control; needs an index, a lookup rule in the evaluator, and a policy for missing entries  |
 
 *Recommendation remains L1 (run directory). It is listed with the alternatives
 above only to make the trade-off explicit; nothing is decided here.*
 
 ### 5.2 Alternatives for one report versus two (options only — not decided)
 
-| Option | Description | Trade-offs |
-|---|---|---|
-| R1 — two separate reports (current recommendation) | `application_pipeline_metrics.json` and a future `detector_metrics.json`, each with its own scope label | Impossible to confuse scopes; readers must open two files to compare |
-| R2 — one combined report with two labelled sections | A single report containing both blocks | Convenient for review; higher risk that a reader quotes the pipeline numbers as detector numbers despite the labels |
-| R3 — a thin index plus two reports | A small manifest listing both reports, their scopes and digests | Keeps outputs separate while making discovery easy; adds one more artifact to maintain |
+
+| Option                                               | Description                                                                                             | Trade-offs                                                                                                          |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| R1 — two separate reports (current recommendation)  | `application_pipeline_metrics.json` and a future `detector_metrics.json`, each with its own scope label | Impossible to confuse scopes; readers must open two files to compare                                                |
+| R2 — one combined report with two labelled sections | A single report containing both blocks                                                                  | Convenient for review; higher risk that a reader quotes the pipeline numbers as detector numbers despite the labels |
+| R3 — a thin index plus two reports                  | A small manifest listing both reports, their scopes and digests                                         | Keeps outputs separate while making discovery easy; adds one more artifact to maintain                              |
 
 *Recommendation remains R1 (two separate reports).* These are options for the
 owner; no implementation is proposed here.
-
 
 ---
 
@@ -345,11 +349,12 @@ scripts/evaluate_detector_metric.py --config <config.json> --run <run-dir> \
 
 ## 10. Open owner decisions (none decided here)
 
-| # | Decision | Options | Trade-offs | Recommendation |
-|---|---|---|---|---|
-| D1 | Detector boundary | P1 adapter output vs P2 backend rows | P1 is cheap and needs no A change but cannot count non-canonical FPs; P2 is more complete but changes A's interface | P1 first; add P2 audit columns if A agrees |
-| D2 | Non-canonical class predictions | Count as FP / exclude / report separately | Counting changes the metric definition; excluding hides adapter drops | Report as a separate audit count, exclude from the primary metric until the owner decides |
-| D3 | Threshold boundary | Record `>` semantics / normalise to `>=` | The backend and B filter already differ; normalising invents behaviour | Record the semantics string and validate only saved confidences |
-| D4 | Artifact location | Run directory / separate evidence directory | Same lifecycle is simpler; a separate directory makes provenance clearer | Run directory, with digest recorded in `run_metadata.json` |
-| D5 | Scope approval | A only / B only / A and B | The label defines what the metric means | A and B |
-| D6 | Whether both metrics appear on one report page | Separate files/labels / combined summary | A combined summary invites accidental merging | Separate outputs; a comparison may list both with explicit roles |
+
+| #  | Decision                                       | Options                                     | Trade-offs                                                                                                          | Recommendation                                                                            |
+| -- | ---------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| D1 | Detector boundary                              | P1 adapter output vs P2 backend rows        | P1 is cheap and needs no A change but cannot count non-canonical FPs; P2 is more complete but changes A's interface | P1 first; add P2 audit columns if A agrees                                                |
+| D2 | Non-canonical class predictions                | Count as FP / exclude / report separately   | Counting changes the metric definition; excluding hides adapter drops                                               | Report as a separate audit count, exclude from the primary metric until the owner decides |
+| D3 | Threshold boundary                             | Record`>` semantics / normalise to `>=`     | The backend and B filter already differ; normalising invents behaviour                                              | Record the semantics string and validate only saved confidences                           |
+| D4 | Artifact location                              | Run directory / separate evidence directory | Same lifecycle is simpler; a separate directory makes provenance clearer                                            | Run directory, with digest recorded in`run_metadata.json`                                 |
+| D5 | Scope approval                                 | A only / B only / A and B                   | The label defines what the metric means                                                                             | A and B                                                                                   |
+| D6 | Whether both metrics appear on one report page | Separate files/labels / combined summary    | A combined summary invites accidental merging                                                                       | Separate outputs; a comparison may list both with explicit roles                          |
