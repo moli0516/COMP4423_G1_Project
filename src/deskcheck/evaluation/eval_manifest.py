@@ -1,10 +1,12 @@
-"""Build the B evaluation manifest from released pair annotations.
+"""Build the B evaluation manifest for one split of a released dataset.
 
-Consumes only the pairs file metadata and its image path strings. Images are
-never opened or decoded; referenced paths are only stat-ed for existence, the
-same way the validation path already does (`load_manifest` resolves them
-strictly). Image paths are written relative to the manifest file, never
-absolute, so the manifest stays portable and byte-reproducible.
+Split membership comes from `splits.json`, never from the pairs file: only the
+pair_ids listed for the requested split are validated, stat-ed and emitted.
+Pairs belonging to other splits are never touched. Images are never opened or
+decoded; a selected pair's paths are only stat-ed for existence, the same way
+the validation path already does (`load_manifest` resolves them strictly).
+Image paths are written relative to the manifest file, never absolute, so the
+manifest stays portable and byte-reproducible.
 
 The payload is exactly what `scripts/evaluate_real_pairs.py:load_manifest`
 accepts and is verified through that same function before publication.
@@ -18,7 +20,7 @@ import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
-from deskcheck.data.dataset_catalog import AnnotatedPair, load_annotations
+from deskcheck.data.dataset_catalog import AnnotatedPair, load_catalog
 from deskcheck.data.yolo_exporter import DEFAULT_CLASS_NAMES
 from deskcheck.evaluation.annotation_converter import convert_pair
 from deskcheck.evaluation.event_evaluator import EventEvaluator
@@ -40,37 +42,52 @@ _BOX_PRESENCE = {
 def build_eval_manifest(
     pairs_path: str | Path,
     *,
+    splits_path: str | Path,
     split: str,
     dataset_release: str,
     output: str | Path,
 ) -> dict:
-    """Return a manifest payload for one split, with paths relative to `output`.
+    """Return a manifest payload for `split`, with paths relative to `output`.
 
-    Rejects an unknown split, an unnamed release, an empty pairs file, duplicate
-    pair_ids, unknown classes, statuses that disagree with box presence, and
-    eligible no-change pairs that carry change events. Every error names the
-    offending pair.
+    Pairs are selected through `splits.json` (the same way the validation tool
+    does), so only that split's pair_ids are validated, stat-ed and emitted.
+    Rejects an unknown split, an unnamed or mismatched dataset release, an empty
+    pairs file, an empty selected split, duplicate pair_ids, unknown classes,
+    statuses that disagree with box presence, and eligible no-change pairs that
+    carry change events. Every error names the offending item.
     """
     if split not in REQUIRED_SPLITS:
         raise ValueError(f"split must be one of {list(REQUIRED_SPLITS)}, got {split!r}")
     if not isinstance(dataset_release, str) or not dataset_release.strip():
         raise ValueError("dataset release must be a nonempty string")
+    release = dataset_release.strip()
 
     source = Path(pairs_path)
+    splits_source = Path(splits_path)
     output_path = Path(output)
     output_dir = output_path.parent.resolve()
-    pairs = load_annotations(source)
-    if not pairs:
+    catalog, split_manifest = load_catalog(source, splits_source)
+    if not catalog:
         raise ValueError(f"pairs file has no pairs: {source}")
+    if release != split_manifest.dataset_release:
+        raise ValueError(
+            f"dataset release mismatch: {release!r} does not match "
+            f"splits.json dataset_release {split_manifest.dataset_release!r}"
+        )
+
+    pair_ids = list(split_manifest.splits[split])
+    if not pair_ids:
+        raise ValueError(f"split {split!r} selects no pairs from {source}")
+    selected = [catalog[pair_id] for pair_id in pair_ids]
 
     truth: dict[str, list[dict]] = {}
-    for pair in pairs.values():
+    for pair in selected:
         _validate_pair_metadata(pair)
         truth[pair.pair_id] = _convert_named_pair(pair)
 
     # The runner's own contracts are the authority; check them before publishing.
     EventEvaluator().evaluate(truth, truth)
-    eligible = [pid for pid, pair in pairs.items() if pair.independently_captured_no_change]
+    eligible = [pair.pair_id for pair in selected if pair.independently_captured_no_change]
     if eligible:
         eligibility = NoChangeEvaluator().evaluate(truth, eligible)
         if eligibility["false_alarm_pair_count"]:
@@ -81,7 +98,7 @@ def build_eval_manifest(
 
     return {
         "schema_version": MANIFEST_SCHEMA_VERSION,
-        "dataset_release": dataset_release,
+        "dataset_release": release,
         "split": split,
         "pairs": [
             {
@@ -93,7 +110,7 @@ def build_eval_manifest(
                     pair.pair_id, "after", pair.after_image_path, output_dir
                 ),
             }
-            for pair in pairs.values()
+            for pair in selected
         ],
         "ground_truth": truth,
         "eligible_no_change_pair_ids": eligible,

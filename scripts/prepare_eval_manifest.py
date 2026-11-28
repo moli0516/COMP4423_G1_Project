@@ -1,15 +1,16 @@
-"""CLI: build a B evaluation manifest for one split from released pair annotations.
+"""CLI: build a B evaluation manifest for one split of a released dataset.
 
 Usage:
     python scripts/prepare_eval_manifest.py \
         --pairs data/annotations/pairs.jsonl \
+        --splits data/manifests/splits.json \
         --split val \
         --dataset-release <release-name> \
         --output artifacts/eval_manifest_val.json
 
-Only pairs-file metadata and its image path strings are read; images are never
-decoded. The manifest is written with paths relative to itself and is rejected
-unless the runner's own `load_manifest` accepts it.
+Split membership comes from --splits; only that split's pairs are validated and
+emitted, and other splits are never touched. Images are never decoded, and
+--dataset-release must match the release recorded in splits.json.
 
 Exit codes:
     0  manifest written
@@ -39,8 +40,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--pairs", type=Path, required=True,
                         help="Released pair annotations (pairs.jsonl)")
+    parser.add_argument("--splits", type=Path, required=True,
+                        help="Released split manifest (splits.json)")
     parser.add_argument("--split", choices=("val", "test"), required=True,
-                        help="Split the pairs belong to")
+                        help="Split to select from splits.json")
     parser.add_argument("--dataset-release", required=True,
                         help="Dataset release name recorded in the manifest")
     parser.add_argument("--output", type=Path, required=True,
@@ -54,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         payload = build_eval_manifest(
             args.pairs,
+            splits_path=args.splits,
             split=args.split,
             dataset_release=args.dataset_release,
             output=args.output,

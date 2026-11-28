@@ -66,14 +66,19 @@ pointers; each student writes and verifies their own report.
 ## Evaluation manifests
 
 The evaluation runner consumes a manifest, not A's raw annotations. Build one
-split's manifest from released pair metadata (images are never opened or
-decoded; referenced paths are only checked for existence):
+split's manifest from the released pairs plus `splits.json`. Split membership
+comes from `splits.json`; only that split's pairs are read, validated and
+emitted, so other splits are never touched. Images are never opened or decoded;
+a selected pair's paths are only checked for existence:
 
 ```powershell
 .\.venv\Scripts\python.exe -B scripts/prepare_eval_manifest.py --pairs data/annotations/pairs.jsonl `
-    --split val --dataset-release <release-name> --output artifacts/eval_manifest_val.json
+    --splits data/manifests/splits.json --split val --dataset-release <release-name> `
+    --output artifacts/eval_manifest_val.json
 ```
 
+`--split` accepts `val` or `test` only. `--dataset-release` must match the
+`dataset_release` recorded in `splits.json`, and an empty split is refused.
 `--output` must be a new file; an existing path is refused. Image paths are
 written relative to the manifest, so the manifest and photos stay portable and
 the same input yields identical bytes. Nothing is published unless the runner's
