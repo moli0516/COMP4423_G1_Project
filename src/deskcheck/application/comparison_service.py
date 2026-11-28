@@ -1,15 +1,45 @@
 """Compare canonical frames through the selected detector and B's change pipeline."""
 
+from dataclasses import replace
 from pathlib import Path
+from shutil import copyfile
+from tempfile import TemporaryDirectory
 
 from deskcheck.application.app_config import CLASS_NAMES, AppConfig
 from deskcheck.application.image_pair_loader import ImagePairLoader
-from deskcheck.application.real_settings import RealSettings
+from deskcheck.application.real_settings import RealSettings, sha256_file
 from deskcheck.changes.change_analyzer import ChangeAnalyzer
 from deskcheck.detection.detection_filter import DetectionFilter
+from deskcheck.detection.object_detector import ObjectDetector
 from deskcheck.detection.yolo_detector import YoloConfig, YoloDetector
+from deskcheck.domain.detection import Detection
 from deskcheck.domain.image_frame import ImageFrame
 from deskcheck.matching.object_matcher import ObjectMatcher
+
+
+class _VerifiedCheckpointDetector(ObjectDetector):
+    """Bind the app's declared hash to the file the lazy detector actually loads."""
+
+    def __init__(self, config: YoloConfig, checkpoint_sha256: str) -> None:
+        self._config = config
+        self._checkpoint_sha256 = checkpoint_sha256
+        self._detector: YoloDetector | None = None
+
+    def predict(self, image: ImageFrame) -> list[Detection]:
+        if self._detector is not None:
+            return self._detector.predict(image)
+        # YOLO accepts a path, not a byte stream. Copy into a private temporary
+        # directory, hash that snapshot, and load that exact file, never the
+        # mutable original path. The adapter caches the loaded .pt model.
+        with TemporaryDirectory(prefix="deskcheck-checkpoint-") as directory:
+            snapshot = Path(directory) / self._config.checkpoint_path.name
+            copyfile(self._config.checkpoint_path, snapshot)
+            if sha256_file(snapshot) != self._checkpoint_sha256:
+                raise ValueError("Local checkpoint hash disagrees with declared source hash")
+            detector = YoloDetector(replace(self._config, checkpoint_path=snapshot))
+            detections = detector.predict(image)
+        self._detector = detector
+        return detections
 
 
 class ComparisonService:
@@ -30,14 +60,17 @@ class ComparisonService:
         """Build the shared CPU inference path from the hash-validated app config."""
         if not isinstance(settings, RealSettings):
             raise TypeError("Real inference requires validated RealSettings")
-        detector = YoloDetector(YoloConfig(
-            checkpoint_path=settings.checkpoint_path,
-            confidence_threshold=settings.confidence_threshold,
-            nms_iou_threshold=settings.nms_iou_threshold,
-            image_size=settings.imgsz,
-            class_names=CLASS_NAMES,
-            device="cpu",
-        ))
+        detector = _VerifiedCheckpointDetector(
+            YoloConfig(
+                checkpoint_path=settings.checkpoint_path,
+                confidence_threshold=settings.confidence_threshold,
+                nms_iou_threshold=settings.nms_iou_threshold,
+                image_size=settings.imgsz,
+                class_names=CLASS_NAMES,
+                device="cpu",
+            ),
+            settings.checkpoint_sha256,
+        )
         return cls(config=settings, detector=detector)
 
     @property
