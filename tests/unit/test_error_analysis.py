@@ -19,6 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 CLI = ROOT / "scripts" / "analyze_errors.py"
 BOX = [0.0, 0.0, 10.0, 10.0]
 FAR = [100.0, 100.0, 110.0, 110.0]
+SHIFTED = [2.0, 0.0, 12.0, 10.0]  # IoU 2/3 with BOX, between 0.5 and 0.9
+IOU = 0.5
 STATUSES = ("added", "removed", "moved", "unchanged")
 
 
@@ -91,6 +93,7 @@ def _run(
     *,
     eligible: tuple[str, ...] = (),
     cases_per_group: int = 2,
+    iou_threshold: float = IOU,
     loader=load_manifest,
     out_name: str = "analysis",
     manifest_path: Path | None = None,
@@ -102,6 +105,7 @@ def _run(
         preds,
         manifest,
         output,
+        iou_threshold=iou_threshold,
         manifest_loader=loader,
         cases_per_group=cases_per_group,
     )
@@ -209,10 +213,13 @@ def test_other_bucket_records_the_reason(
     class ZeroEvaluator:
         STATUSES = STATUSES
 
+        def __init__(self, iou_threshold: float = 0.5) -> None:
+            self.iou_threshold = iou_threshold
+
         def evaluate(self, predicted: dict, ground_truth: dict) -> dict:
             return {
                 "protocol_version": "zeroed-fixture",
-                "iou_threshold": 0.5,
+                "iou_threshold": self.iou_threshold,
                 "zero_division": 0,
                 "per_status": {status: {"tp": 0, "fp": 0, "fn": 0} for status in STATUSES},
             }
@@ -293,6 +300,7 @@ def test_existing_output_dir_is_refused_and_untouched(tmp_path: Path) -> None:
         _run(tmp_path, {"p1": []}, {"p1": []})
 
     assert (output / "keep.txt").read_text(encoding="utf-8") == "keep"
+    assert sorted(p.name for p in output.iterdir()) == ["keep.txt"]
     assert sorted(p.name for p in tmp_path.iterdir() if p.name.startswith(".")) == []
 
 
@@ -329,6 +337,12 @@ def test_selection_limits_and_orders_by_pair_id(tmp_path: Path) -> None:
     assert group["status"] == "moved" and group["error_type"] == "missed_event"
     assert group["total"] == 3
     assert [case["pair_id"] for case in group["cases"]] == ["a1", "b1"]
+    assert [case["pair_id"] for case in group["cases"]] == sorted(
+        case["pair_id"] for case in group["cases"]
+    )
+    for case in group["cases"]:
+        assert set(case) == {"pair_id", "class_id", "gt_status", "pred_status",
+                            "error_type", "reason", "error_reason"}
 
     full = _run(tmp_path, ground_truth, predictions, cases_per_group=10, out_name="all")
     (group_all,) = _cases(full)["groups"]
@@ -340,8 +354,8 @@ def test_cases_per_group_must_be_positive(tmp_path: Path) -> None:
     preds = _write_predictions(tmp_path, {"p1": []})
 
     with pytest.raises(ValueError, match="cases_per_group"):
-        analyze_errors(preds, manifest, tmp_path / "out", manifest_loader=load_manifest,
-                       cases_per_group=0)
+        analyze_errors(preds, manifest, tmp_path / "out", iou_threshold=IOU,
+                       manifest_loader=load_manifest, cases_per_group=0)
 
 
 def test_counts_match_the_evaluators_aggregate(tmp_path: Path) -> None:
@@ -387,7 +401,8 @@ def test_cli_writes_analysis_and_refuses_overwrite(tmp_path: Path) -> None:
     output = tmp_path / "cli_out"
 
     command = [sys.executable, str(CLI), "--predictions", str(preds),
-               "--manifest", str(manifest), "--output-dir", str(output)]
+               "--manifest", str(manifest), "--output-dir", str(output),
+               "--iou-threshold", str(IOU)]
     completed = subprocess.run(command, capture_output=True, text=True, check=False,
                                timeout=60, cwd=ROOT)
     assert completed.returncode == 0, completed.stderr
@@ -400,3 +415,137 @@ def test_cli_writes_analysis_and_refuses_overwrite(tmp_path: Path) -> None:
                            timeout=60, cwd=ROOT)
     assert again.returncode == 2
     assert "refusing" in again.stderr
+
+
+def test_iou_threshold_is_required_by_the_api(tmp_path: Path) -> None:
+    manifest = _write_manifest(tmp_path, {"p1": []})
+    preds = _write_predictions(tmp_path, {"p1": []})
+
+    with pytest.raises(TypeError, match="iou_threshold"):
+        analyze_errors(preds, manifest, tmp_path / "out", manifest_loader=load_manifest)
+    assert not (tmp_path / "out").exists()
+
+
+def test_iou_threshold_of_zero_is_rejected_by_the_api(tmp_path: Path) -> None:
+    manifest = _write_manifest(tmp_path, {"p1": []})
+    preds = _write_predictions(tmp_path, {"p1": []})
+
+    with pytest.raises(ValueError, match=r"iou_threshold must be finite and in \(0, 1\]"):
+        analyze_errors(preds, manifest, tmp_path / "out", iou_threshold=0,
+                       manifest_loader=load_manifest)
+    assert not (tmp_path / "out").exists()
+
+
+def test_iou_threshold_controls_misalignment(tmp_path: Path) -> None:
+    ground_truth = {"p1": [_event(0, "unchanged", BOX)]}
+    predictions = {"p1": [_event(0, "unchanged", SHIFTED)]}
+    manifest = _write_manifest(tmp_path, ground_truth)
+
+    loose = _run(tmp_path, ground_truth, predictions, manifest_path=manifest,
+                 iou_threshold=0.5, out_name="loose")
+    strict = _run(tmp_path, ground_truth, predictions, manifest_path=manifest,
+                  iou_threshold=0.9, out_name="strict")
+
+    assert _event_rows(loose) == []
+    assert _pair_rows(loose)["p1"]["all_correct"] == "true"
+    (error,) = _event_rows(strict)
+    assert error["error_type"] == "misaligned_event"
+    assert _summary(loose)["rules"]["event_iou_threshold"] == 0.5
+    assert _summary(strict)["rules"]["event_iou_threshold"] == 0.9
+    assert _summary(strict)["rules"]["event_iou_threshold_source"] == (
+        "user-supplied iou_threshold"
+    )
+
+
+def test_cli_requires_iou_threshold(tmp_path: Path) -> None:
+    manifest = _write_manifest(tmp_path, {"p1": []})
+    preds = _write_predictions(tmp_path, {"p1": []})
+    output = tmp_path / "cli_out"
+
+    completed = subprocess.run(
+        [sys.executable, str(CLI), "--predictions", str(preds),
+         "--manifest", str(manifest), "--output-dir", str(output)],
+        capture_output=True, text=True, check=False, timeout=60, cwd=ROOT,
+    )
+
+    assert completed.returncode == 2
+    assert "--iou-threshold" in completed.stderr
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("value", ["0", "1.5", "-0.1", "nan", "abc"])
+def test_cli_rejects_invalid_iou_threshold(tmp_path: Path, value: str) -> None:
+    manifest = _write_manifest(tmp_path, {"p1": []})
+    preds = _write_predictions(tmp_path, {"p1": []})
+    output = tmp_path / "cli_out"
+
+    completed = subprocess.run(
+        [sys.executable, str(CLI), "--predictions", str(preds),
+         "--manifest", str(manifest), "--output-dir", str(output),
+         "--iou-threshold", value],
+        capture_output=True, text=True, check=False, timeout=60, cwd=ROOT,
+    )
+
+    assert completed.returncode == 2
+    assert "iou-threshold" in completed.stderr
+    assert not output.exists()
+
+
+def test_module_never_accesses_image_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ground_truth = {"p1": [_event(0, "moved")]}
+    preds = _write_predictions(tmp_path, {"p1": []})
+    manifest = {
+        "schema_version": "1.0",
+        "dataset_release": "fixture-v1",
+        "split": "val",
+        "pairs": [{"pair_id": "p1", "before_path": "photos/p1_before.png",
+                   "after_path": "photos/p1_after.png"}],
+        "ground_truth": ground_truth,
+        "eligible_no_change_pair_ids": [],
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    touched: list[str] = []
+
+    def guard(name: str, real):
+        def wrapper(self, *args, **kwargs):
+            if self.suffix == ".png":
+                touched.append(str(self))
+                raise AssertionError(f"module accessed image path: {self}")
+            return real(self, *args, **kwargs)
+
+        return wrapper
+
+    for name in ("stat", "resolve", "open", "is_file", "read_bytes"):
+        monkeypatch.setattr(Path, name, guard(name, getattr(Path, name)))
+
+    # The manifest dict is injected directly, so load_manifest (which stats) never runs.
+    analyze_errors(preds, manifest_path, tmp_path / "study",
+                   iou_threshold=IOU, manifest_loader=lambda _path: manifest)
+
+    assert touched == []
+    assert (tmp_path / "study" / "pair_results.csv").is_file()
+
+
+def test_publish_failure_leaves_no_output_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ground_truth = {"p1": [_event(0, "moved")]}
+    manifest = _write_manifest(tmp_path, ground_truth)
+    preds = _write_predictions(tmp_path, {"p1": []})
+    output = tmp_path / "study"
+
+    class FailingPath(type(Path())):
+        def rename(self, target):
+            raise OSError("simulated publish failure")
+
+    monkeypatch.setattr(error_analysis, "Path", FailingPath)
+
+    with pytest.raises(OSError, match="simulated publish failure"):
+        analyze_errors(preds, manifest, output, iou_threshold=IOU,
+                       manifest_loader=load_manifest)
+
+    assert not output.exists()
+    assert sorted(p.name for p in tmp_path.iterdir() if p.name.startswith(".study-")) == []

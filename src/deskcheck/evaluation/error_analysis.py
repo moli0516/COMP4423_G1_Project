@@ -43,6 +43,12 @@ error_type ``none`` for a success and ``false_alarm`` for a failure.
 Outputs are deterministic for identical input: rows are ordered by
 (pair_id, class_id) and (pair_id), no timestamps or paths are embedded, and JSON
 is written with sorted keys.
+
+Stability limits: output is byte-identical for the same input under the same
+Python version; float representation (for example 2/3) is not guaranteed to be
+identical across Python versions. The event IoU threshold is supplied by the
+caller and is not recorded in the predictions file, so it must be stated
+explicitly on every run and compared runs must use the same value.
 """
 
 from __future__ import annotations
@@ -54,6 +60,7 @@ import json
 import shutil
 import tempfile
 from collections.abc import Callable, Mapping
+from math import isfinite
 from pathlib import Path
 
 from deskcheck.evaluation.event_evaluator import EventEvaluator
@@ -103,6 +110,7 @@ def analyze_errors(
     manifest_path: str | Path,
     output_dir: str | Path,
     *,
+    iou_threshold: float,
     manifest_loader: Callable[[Path], object],
     cases_per_group: int = DEFAULT_CASES_PER_GROUP,
 ) -> dict:
@@ -117,6 +125,12 @@ def analyze_errors(
         raise TypeError("cases_per_group must be an integer")
     if cases_per_group < 1:
         raise ValueError(f"cases_per_group must be >= 1, got {cases_per_group}")
+    if isinstance(iou_threshold, bool) or not isinstance(iou_threshold, (int, float)):
+        raise TypeError("iou_threshold must be a number")
+    if not isfinite(iou_threshold) or not 0 < iou_threshold <= 1:
+        raise ValueError(
+            f"iou_threshold must be finite and in (0, 1], got {iou_threshold!r}"
+        )
 
     predictions_file = Path(predictions_path)
     target = Path(output_dir)
@@ -137,7 +151,7 @@ def analyze_errors(
         raise TypeError("predictions file must be a JSON object keyed by pair_id")
     _require_same_pairs(predictions, ground_truth)
 
-    evaluator = EventEvaluator()
+    evaluator = EventEvaluator(iou_threshold=float(iou_threshold))
     aggregate = evaluator.evaluate(predictions, ground_truth)
 
     pair_rows, event_rows, decomposed = _classify_pairs(
@@ -163,6 +177,7 @@ def analyze_errors(
         "rules": {
             "event_protocol_version": aggregate["protocol_version"],
             "event_iou_threshold": aggregate["iou_threshold"],
+            "event_iou_threshold_source": "user-supplied iou_threshold",
             "event_zero_division": aggregate["zero_division"],
             "no_change_protocol_version": no_change["protocol_version"],
         },
