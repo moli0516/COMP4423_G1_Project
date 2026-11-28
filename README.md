@@ -51,6 +51,20 @@ Post-B-filter diagnostic arrays are **not detector AP input**; A defines the
 detector-level evaluation boundary. The additive result extension still needs
 A/B review. B's batch `predictions.json` contains event records only.
 
+Detector mAP runs on an isolated copy of the dataset, so backend validation can
+never modify the original images:
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts/evaluate_detector_map.py --weights <best.pt> `
+    --dataset-yaml <dataset.yaml> --split val `
+    --output artifacts/detector_map_val.json --copy-dir artifacts/dataset_copy_val
+```
+
+The report records mAP50, mAP50-95, per-class AP50/AP50-95, the split, the
+backend name/version, the SHA-256 of the weights and dataset YAML, and a UTC
+timestamp. `--split test` is the held-out final run and is refused unless
+`--confirm-final-test` is passed; run it once, after the configuration is frozen.
+
 Build and verify a C source archive from a clean, committed Jerry-C checkout:
 
 ```powershell
