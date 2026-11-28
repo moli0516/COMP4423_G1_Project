@@ -63,6 +63,23 @@ marked `C_SOURCE_ONLY`, **not a complete Canvas submission**. See
 [contribution evidence](docs/C_CONTRIBUTION_EVIDENCE.md) for factual code/evidence
 pointers; each student writes and verifies their own report.
 
+## Evaluation manifests
+
+The evaluation runner consumes a manifest, not A's raw annotations. Build one
+split's manifest from released pair metadata (images are never opened or
+decoded; referenced paths are only checked for existence):
+
+```powershell
+.\.venv\Scripts\python.exe -B scripts/prepare_eval_manifest.py --pairs data/annotations/pairs.jsonl `
+    --split val --dataset-release <release-name> --output artifacts/eval_manifest_val.json
+```
+
+`--output` must be a new file; an existing path is refused. Image paths are
+written relative to the manifest, so the manifest and photos stay portable and
+the same input yields identical bytes. Nothing is published unless the runner's
+own `load_manifest` accepts the staged file. Build the test manifest the same
+way with `--split test`, once, after the configuration is frozen.
+
 ## Ownership
 
 - A owns data capture, audit, split and export, the detector, the shared trainer and the E0 baseline.
