@@ -1,0 +1,31 @@
+Epoch selection evidence — E0 baseline
+======================================
+
+Source: Ultralytics EarlyStopping output at end of training.
+
+Verbatim excerpt:
+  "EarlyStopping: Training stopped early as no improvement observed in last
+   20 epochs. Best results observed at epoch 64, best model saved as best.pt."
+
+CSV evidence (results.csv; epoch column is 1-indexed as confirmed by the
+first data row = 1 and last data row = 84):
+  epoch 63 (1-indexed): mAP50-95 = 0.83498
+  epoch 64 (1-indexed): mAP50-95 = 0.87789   ← tied for max
+  epoch 65 (1-indexed): mAP50-95 = 0.87789   ← tied for max
+
+Both epoch 64 and epoch 65 have identical mAP50-95 (0.87789) at recorded
+precision. Genuine tie, not a unique argmax. Ultralytics selected epoch 64
+per its EarlyStopping message; its internal tie-break logic is not publicly
+documented (combined fitness likely includes box loss; first-encountered
+max preserved).
+
+Artifact field selected_epoch=64 reflects Ultralytics's choice. The CSV
+indexing is 1-indexed: epoch 1 is the first training epoch, epoch 84 is
+the last. This matches the Ultralytics message's convention.
+
+Provenance limitation: no per-epoch saved checkpoints (training did not use
+save_period=1). Cannot independently diff epoch-64 weights vs epoch-65
+weights vs best.pt. Recommend save_period=1 for future runs if strict
+verification is required.
+
+Disclosed explicitly; no reconstruction or invented evidence.

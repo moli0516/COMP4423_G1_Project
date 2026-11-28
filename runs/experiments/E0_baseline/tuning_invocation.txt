@@ -1,0 +1,40 @@
+Threshold tuning — invocation and selection record
+==================================================
+
+Command:
+  python scripts/tune_thresholds.py \
+    --checkpoint runs/experiments/E0_baseline/best.pt \
+    --dataset /home/wyc/Documents/CV Group/data/formal_photos/yolo_export/dataset.yaml \
+    --output-csv runs/experiments/E0_baseline/threshold_tuning.csv \
+    --imgsz 640 \
+    --device 0
+
+Grid:
+  Confidence: 0.15, 0.20, 0.25, 0.30, 0.40
+  NMS IoU:    0.35, 0.45, 0.55
+  Total: 15 combinations. Validation split only. Test untouched.
+
+Selection rule (exact, no tolerance):
+  1. Highest F1 (exact float comparison)
+  2. If F1 ties exactly: highest mAP50-95 (exact float comparison)
+  3. If both tie exactly: lexicographic (conf asc, iou asc)
+
+Winner: confidence=0.20, nms_iou=0.35
+
+Six-way exact tie at F1=0.9906542056074767, mAP50-95=0.8778869047619047:
+  conf=0.20, iou=0.35
+  conf=0.20, iou=0.45
+  conf=0.20, iou=0.55
+  conf=0.25, iou=0.35
+  conf=0.25, iou=0.45
+  conf=0.25, iou=0.55
+
+All six produce identical F1 and mAP50-95 on this 8-image val set —
+operationally equivalent. The selection of 0.20/0.35 is the deterministic
+result of the lexicographic tie-break above, not a substantive choice.
+
+The tuning script does not apply a tolerance; candidates are grouped only
+by exact equality of recorded F1/mAP50-95 floats from the ultralytics val()
+call. See scripts/tune_thresholds.py for the implementation.
+
+Test split untouched. Only val/ used for tuning.

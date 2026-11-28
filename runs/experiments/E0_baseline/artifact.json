@@ -1,0 +1,63 @@
+{
+  "experiment_id": "E0",
+  "run_dir": "runs/experiments/E0_baseline",
+  "checkpoint_path": "runs/experiments/E0_baseline/best.pt",
+  "checkpoint_sha256": "82ed9f8569b705e7074f44d81006515da3e02dde3284a211c4a73a5f9d96c438",
+  "architecture": "yolov8n",
+  "pretrained_weights": "yolov8n.pt",
+  "class_names": [
+    "bottle",
+    "cup",
+    "keyboard",
+    "mouse",
+    "book",
+    "scissors"
+  ],
+  "image_size": 640,
+  "dataset_yaml": "/home/wyc/Documents/CV Group/data/formal_photos/yolo_export/dataset.yaml",
+  "dataset_release": "v1",
+  "split_seed": 42,
+  "epochs_requested": 100,
+  "epochs_completed": 84,
+  "selected_epoch": 64,
+  "checkpoint_selection": "best_mAP50_95",
+  "batch_size": 16,
+  "optimizer": "SGD",
+  "learning_rate": 0.01,
+  "weight_decay": 0.0005,
+  "seed": 42,
+  "device": "0",
+  "confidence_threshold": 0.2,
+  "nms_iou_threshold": 0.35,
+  "ultralytics_version": "8.4.215",
+  "torch_version": "2.11.0+cu128",
+  "python_version": "3.12.3",
+  "resolved_config": {
+    "inference": {
+      "confidence_threshold": 0.2,
+      "nms_iou_threshold": 0.35
+    }
+  },
+  "resolved_config_at_training": {
+    "inference": {
+      "confidence_threshold": 0.25,
+      "nms_iou_threshold": 0.45
+    }
+  },
+  "inference_at_training": {
+    "confidence_threshold": 0.25,
+    "nms_iou_threshold": 0.45
+  },
+  "frozen_note": "Frozen after validation-only threshold tuning. 15-combo grid (5 confidence \u00d7 3 NMS IoU) on val split only, no test data. Selected conf=0.20, iou=0.35. Six-way tie at max F1 documented in threshold_tuning.csv; tie-break by lexicographic (conf asc, iou asc).",
+  "resolved_config_note": "resolved_config_at_training preserves the config as it existed at model.train() time (before validation-only threshold tuning). Top-level confidence_threshold and nms_iou_threshold are the FROZEN inference values. Both are preserved for audit; do not merge.",
+  "post_hoc_annotation": {
+    "applied_at": "2026-11-27T13:51:26.413445+00:00",
+    "applied_by": "scripts/finalize_artifact.py",
+    "reason": "Record frozen inference settings separately from training-time settings so downstream evaluation can distinguish them.",
+    "training_inference_conf": 0.25,
+    "training_inference_iou": 0.45,
+    "frozen_inference_conf": 0.2,
+    "frozen_inference_iou": 0.35
+  },
+  "dataset_yaml_sha256": "e02cc0bc03b20cd1cb649cefd2bc3bb86e76c8a436ca5f5946481eeb1d95fe92"
+}

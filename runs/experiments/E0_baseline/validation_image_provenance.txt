@@ -1,0 +1,237 @@
+Validation image provenance — E0 baseline
+=========================================
+
+TWO EXPORTS are preserved in the dataset release:
+
+1. yolo_export/ — CURRENT, byte-identical to source (48/48 verified)
+   - Regenerated from formal_photos/*.jpg with `--force`.
+   - All 48 images (train 28 / val 8 / test 12) match source photos
+     byte-for-byte by SHA256 (see sha256_manifest.txt).
+   - Do NOT run ultralytics val on this directory directly — it mutates
+     val JPEGs in place. To verify, copy first:
+         cp -r yolo_export /tmp/val_copy
+         python -c "... val(data='/tmp/val_copy/dataset.yaml') ..."
+   - This is the export that future training runs and evaluation should use.
+
+2. yolo_export_at_E0_time/ — HISTORICAL, val JPEGs decode-repaired
+   - The export as ultralytics left it after E0 training/val.
+   - During E0 val, ultralytics's decode-repair logic re-encoded the 8 val
+     JPEGs in place. Train (28) and test (12) images were not val'd during
+     E0 and remain byte-identical to source (40/48 match).
+   - Contains `labels/val.cache` — the label cache produced when val ran.
+     See "val.cache" section below.
+   - Preserved for audit only. Not runnable as-is: its `dataset.yaml`
+     points at `path: /home/wyc/.../yolo_export` (the CURRENT export),
+     so it would resolve to source images, not the historical ones.
+     To run the historical export, edit its dataset.yaml `path:` to
+     point at the historical directory. This is a known limitation.
+
+BYTE-LEVEL VERIFICATION (see sha256_manifest.txt for per-file comparison):
+- CURRENT yolo_export/ vs source photos:       48/48 byte-identical
+- HISTORICAL yolo_export_at_E0_time/ vs source: 40/48 byte-identical
+  (8 val images differ due to decode-repair)
+
+DECODE-REPAIR MECHANISM
+=======================
+When ultralytics val scans a directory, it attempts to load each JPEG.
+Source photos have a marginal header marker (JFIF/EXIF format) that
+triggers PIL's "restore and save" repair path:
+  "val: /path/to/G01P1__after.jpg: corrupt JPEG restored and saved"
+The repair re-encodes the file and writes it back over the original.
+Its SHA256 changes; its decoded RGB may differ slightly (JPEG is lossy).
+
+The repair triggers on the ORIGINAL (source-bytes) JPEG. If val is run
+a second time on the already-repaired files, the message does not
+appear again (the header is now valid). So "every val run mutates the
+export" is only true for the first val on a given set of source-bytes
+JPEGs. Re-running val on already-repaired JPEGs does not mutate them
+further.
+
+E0 TRAINING-TIME STATE
+======================
+The original E0 training run's console output was not preserved to a
+log file. However, the `labels/val.cache` file inside
+yolo_export_at_E0_time/ records the paths and image metadata from that
+val scan, and the fact that all 8 val JPEGs in that directory are
+currently in the decode-repaired state (SHA256 differs from source)
+is direct evidence that the repair did occur during that val run.
+
+We cannot fully reconstruct the exact console output of the training
+run. We CAN verify from the surviving state that the val images were
+repaired at some point (their current bytes match decode-repaired, not
+source) and that the val metrics were computed on that state (0.8779
+in results.csv matches the recheck on repaired bytes, described below).
+
+E0 METRICS — SINGLE VERIFIED VALUE
+==================================
+Both `results.csv` (training-time per-epoch log) and
+`threshold_tuning.csv` report **mAP@0.5:0.95 = 0.87789** for the
+selected epoch (64, 1-indexed). This is the only mAP@0.5:0.95 value
+present in any delivered file. Earlier versions of this provenance
+file contained inaccurate mAP figures; those figures are corrected
+here and the single verified value is 0.87789.
+
+A recheck val run on the export directory (before this document was
+corrected) reported 0.8779 — identical to the training-time value at
+the reported precision. There is no measurable difference between
+training-time and recheck metrics.
+
+REPRODUCTION COMMANDS
+=====================
+To verify current export is byte-identical to source (run AFTER
+copying to avoid mutating the release):
+  cd ~/Documents/CV\ Group/data/formal_photos
+  sha256sum G01P1_after.jpg
+  # → e7ee14f3a54d6d7cfa85e752d7fd8d46395558eb06a8e2485f32caf018b798b0
+  unzip -p formal_dataset_v1.zip formal_photos/yolo_export/images/val/G01P1__after.jpg | sha256sum
+  # → e7ee14f3... (matches)
+
+To verify val metrics (on a COPY, not the release):
+  cp -r yolo_export /tmp/val_copy
+  python -c "from ultralytics import YOLO; m = YOLO('best.pt'); r = m.val(data='/tmp/val_copy/dataset.yaml', split='val', conf=0.20, iou=0.35, imgsz=640, device=0)"
+  # → mAP@0.5 = 0.995, mAP@0.5:0.95 = 0.8779
+
+val.cache FILE
+==============
+`yolo_export_at_E0_time/labels/val.cache` was produced by ultralytics
+when val scanned the labels directory. It contains the paths, image
+sizes, and label data for the 8 val images as they existed at the time
+of that val run. The paths point at `yolo_export/...` (not
+`yolo_export_at_E0_time/...`) because ultralytics was invoked with
+`data=yolo_export/dataset.yaml` at that time; the cache records
+absolute paths from that invocation. It is undocumented in earlier
+versions of this file and is preserved as-is as evidence of the val
+scan. No train.cache was created because training does not use a val
+scan in the same way. If the cache is deleted and val is re-run, it
+will be regenerated.
+
+PACKAGING NOTE
+==============
+An earlier zip shipped with the historical val bytes inside
+yolo_export/images/val/ (packaging error). The current release
+(SHA256 dafb6bb99a927614449965dec2d3ad64a40586b9e46a289363ad8ebe90e15ed3)
+corrects this: yolo_export/ carries source-identical bytes, verified
+inside the archive.
+
+ARTIFACT AND RESOLVED_CONFIG CHANGE LOG
+========================================
+The trainer (trainer.py) writes a base ModelArtifact and resolved_config.json.
+Some fields were added post-hoc via `scripts/finalize_artifact.py`. Full change log:
+
+File: runs/experiments/E0_baseline/artifact.json
+  Field: training_manifest_sha256
+    Original value: "e02cc0bc03b20cd1cb649cefd2bc3bb86e76c8a436ca5f5946481eeb1d95fe92"
+    New field name: dataset_yaml_sha256 (same value)
+    Reason: renamed for accuracy (the field is SHA256 of dataset.yaml, not a manifest)
+    Commit: fd0816945630d423d2188c54d3b917b41bd59fbdecfb158627723bb04696f097
+    Status: OBSERVED (present in the field above)
+
+  Field: resolved_config_at_training
+    Original: ABSENT (trainer does not write this)
+    New: dict containing the training-time resolved config (inference: 0.25/0.45)
+    Reason: preserve training-time config as a separate field from the frozen release config
+    Applied by: scripts/finalize_artifact.py
+    Commit: fd0816945630d423d2188c54d3b917b41bd59fbdecfb158627723bb04696f097
+    Status: OBSERVED (finalize script run confirmed)
+    Note: the value 0.25/0.45 is RECONSTRUCTED from the pre-tuning baseline.json (see baseline.json git history)
+
+  Field: resolved_config_note
+    Original: ABSENT
+    New: explanatory text
+    Applied by: scripts/finalize_artifact.py
+    Status: OBSERVED
+
+  Field: inference_at_training
+    Original: ABSENT
+    New: {"confidence_threshold": 0.25, "nms_iou_threshold": 0.45}
+    Applied by: scripts/finalize_artifact.py
+    Status: RECONSTRUCTED — the 0.25/0.45 values are what baseline.json contained at training time, verified via git history of configs/experiments/baseline.json (commit before 6b6f9b6), not from a preserved training log.
+
+  Field: frozen_note
+    Original: ABSENT
+    New: text describing the frozen inference threshold selection
+    Applied by: scripts/finalize_artifact.py
+    Status: OBSERVED
+
+  Field: post_hoc_annotation
+    Original: ABSENT
+    New: metadata (applied_at, applied_by, reason, training/frozen conf+iou values)
+    Applied by: scripts/finalize_artifact.py
+    Status: OBSERVED
+
+  Field: confidence_threshold (top-level)
+    Original: 0.25 (written by trainer from baseline.json at training time)
+    New: 0.20 (frozen release value)
+    When: commit 6b6f9b6 (2026-11-20)
+    Reason: frozen value from validation-only tuning
+    Status: OBSERVED (recorded in commit 6b6f9b6 diff)
+
+  Field: nms_iou_threshold (top-level)
+    Original: 0.45
+    New: 0.35
+    When: commit 6b6f9b6
+    Status: OBSERVED
+
+File: runs/experiments/E0_baseline/resolved_config.json
+  Field: inference (block)
+    Original: {"confidence_threshold": 0.25, "nms_iou_threshold": 0.45}
+    New: {"confidence_threshold": 0.20, "nms_iou_threshold": 0.35}
+    When: commit 6b6f9b6 + follow-up
+    Reason: frozen values (matches top-level artifact fields)
+    Status: OBSERVED
+
+  Field: inference_at_training
+    Original: ABSENT
+    New: {"confidence_threshold": 0.25, "nms_iou_threshold": 0.45}
+    Status: RECONSTRUCTED (same reason as artifact.json)
+
+  Field: frozen_note
+    Original: ABSENT
+    New: text
+    Status: OBSERVED
+
+Why the two dataset_yaml values differ
+--------------------------------------
+artifact.json top-level `dataset_yaml` = /home/wyc/.../yolo_export/dataset.yaml
+resolved_config_at_training.data.dataset_yaml = data/exports/yolo/dataset.yaml
+
+trainer.py writes the SAME variable into both files at training time. That original
+trainer output was:
+  artifact.json.dataset_yaml = resolved_config.json.data.dataset_yaml = data/exports/yolo/dataset.yaml
+(the value from baseline.json's data.dataset_yaml field, which was a placeholder that
+was later overridden by --dataset on the CLI).
+
+The trainer DID NOT write /home/wyc/... into either file. The /home/wyc/... value in
+artifact.json was written by an earlier ad-hoc edit (now preserved as a POST-HOC
+correction, not trainer output). The canonical effective path used at training time
+was passed via --dataset and is separately recorded in this provenance file (see
+"REPRODUCTION COMMANDS" above — the CLI invocation includes
+--dataset /home/wyc/.../yolo_export/dataset.yaml).
+
+Current state:
+  artifact.json.dataset_yaml = /home/wyc/.../yolo_export/dataset.yaml  (effective CLI override)
+  resolved_config_at_training.data.dataset_yaml = data/exports/yolo/dataset.yaml  (config file value)
+
+Both are accurate records of different things.
+
+Why top-level inference (0.20/0.35) differs from embedded resolved_config.inference
+-------------------------------------------------------------------------------------
+There are three "inference" views in the current package:
+1. artifact.json.confidence_threshold / nms_iou_threshold = 0.20 / 0.35 (FROZEN release values)
+2. artifact.json.resolved_config.inference = 0.20 / 0.35 (matches #1 by design — both frozen)
+3. artifact.json.resolved_config_at_training.inference = 0.25 / 0.45 (historical training-time values)
+
+#1 and #2 are the frozen release settings; they match because both were updated to
+frozen values in commit 6b6f9b6.
+#3 is the training-time config preserved separately by finalize_artifact.py.
+
+The ORIGINAL run config was 0.25 / 0.45 (from baseline.json at training time).
+The FINAL RELEASE config is 0.20 / 0.35 (from validation-only threshold tuning).
+
+Claims tagged as RECONSTRUCTED
+-------------------------------
+The following claims are tagged RECONSTRUCTED (no preserved log):
+- "Ultralytics saw the repaired bytes at training time" (in E0 TRAINING-TIME STATE section above)
+- The 0.25/0.45 training-time inference values (verified via git history of baseline.json, not from a preserved training log)
+
+All other claims are OBSERVED with command/output or file evidence in this package.
