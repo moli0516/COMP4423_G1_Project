@@ -88,7 +88,7 @@ class RealIntegration(unittest.TestCase):
         Image.fromarray(after).save(a)
         with model.installed():
             result = service.compare(b, a, "real-test")
-        model.constructor.assert_called_once_with(str(self.weight.resolve()))
+        model.constructor.assert_called_once()
         self.assertEqual(
             [(r["class_id"], r["status"]) for r in result["records"]],
             [(0, "moved"), (1, "unchanged")],
@@ -101,6 +101,50 @@ class RealIntegration(unittest.TestCase):
             self.assertEqual(options["conf"], self.values["confidence_threshold"])
             self.assertEqual(options["iou"], self.values["nms_iou_threshold"])
             self.assertEqual(options["imgsz"], self.values["imgsz"])
+
+    def test_checkpoint_changed_after_settings_validation_is_rejected_before_loading(self):
+        service = ComparisonService.for_real(RealSettings.load(self.config))
+        self.weight.write_bytes(b"changed after config verification")
+        sample = self.root / "frame.png"
+        Image.new("RGB", (160, 120)).save(sample)
+        model = Model()
+        with model.installed(), self.assertRaisesRegex(ValueError, "(?i)hash"):
+            service.compare(sample, sample, "changed-weight")
+        model.constructor.assert_not_called()
+        self.assertEqual(model.calls, [])
+
+    def test_model_loads_verified_snapshot_when_original_is_replaced_during_loading(self):
+        settings = RealSettings.load(self.config)
+        service = ComparisonService.for_real(settings)
+        sample = self.root / "frame.png"
+        Image.new("RGB", (160, 120)).save(sample)
+        replacement = self.root / "replacement.pt"
+        replacement.write_bytes(b"unverified replacement")
+        model = Model()
+        loaded_paths = []
+
+        def load_checkpoint(path):
+            # Deterministically simulate a path swap at the backend load boundary.
+            replacement.replace(self.weight)
+            snapshot = Path(path)
+            self.assertEqual(
+                hashlib.sha256(snapshot.read_bytes()).hexdigest(),
+                settings.checkpoint_sha256,
+            )
+            self.assertNotEqual(snapshot.resolve(), self.weight.resolve())
+            loaded_paths.append(snapshot)
+            return model
+
+        model.constructor.side_effect = load_checkpoint
+        with model.installed():
+            first = service.compare(sample, sample, "snapshot")
+            second = service.compare(sample, sample, "snapshot")
+        model.constructor.assert_called_once()
+        self.assertEqual(len(model.calls), 4)
+        self.assertEqual(first, second)
+        self.assertEqual(first["metadata"]["checkpoint_sha256"], settings.checkpoint_sha256)
+        self.assertEqual(self.weight.read_bytes(), b"unverified replacement")
+        self.assertFalse(loaded_paths[0].exists())
 
     def test_missing_or_mismatched_weight_refuses_real_mode(self):
         self.weight.write_bytes(b"not matching checksum")
