@@ -1,6 +1,7 @@
 """Prepare the B runner's validation manifest from A's released annotations and splits."""
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -26,6 +27,14 @@ def _path_from_output(image_path: str, output_dir: Path) -> str:
         return str(path)
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def prepare_validation(annotations: Path, splits: Path, output: Path) -> int:
     if output.exists() or output.is_symlink():
         raise FileExistsError(f"Refusing to overwrite manifest: {output}")
@@ -47,6 +56,8 @@ def prepare_validation(annotations: Path, splits: Path, output: Path) -> int:
         "schema_version": "1.0",
         "dataset_release": manifest.dataset_release,
         "split": "val",
+        "source_annotations_sha256": _sha256_file(annotations),
+        "source_split_manifest_sha256": _sha256_file(splits),
         "pairs": [
             {
                 "pair_id": pair.pair_id,

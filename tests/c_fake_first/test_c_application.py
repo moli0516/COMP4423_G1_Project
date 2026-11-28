@@ -241,7 +241,13 @@ class CApplicationTests(unittest.TestCase):
         self.assertEqual(set(result["predictions"]), {"control", "mixed"})
         self.assertEqual(
             {p.name for p in output.iterdir()},
-            {"predictions.json", "metrics.json", "run_metadata.json"},
+            {
+                "predictions.json",
+                "ground_truth.json",
+                "image_detections.json",
+                "metrics.json",
+                "run_metadata.json",
+            },
         )
         with self.assertRaises(FileExistsError):
             EvaluationRunner(service).run(

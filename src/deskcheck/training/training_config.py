@@ -9,6 +9,7 @@ Does NOT import torch/ultralytics. Detector-agnostic.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -21,7 +22,11 @@ ALLOWED_TOP_LEVEL = {
 ALLOWED_MODEL = {"architecture", "pretrained_weights", "trainable_layers"}
 ALLOWED_DATA = {"dataset_yaml", "split_seed", "dataset_release", "class_map_version"}
 ALLOWED_PREPROCESSING = {"image_size", "color_mode", "letterbox"}
-ALLOWED_AUGMENTATION = {"hsv_h", "hsv_s", "hsv_v", "fliplr", "mosaic", "scale"}
+ALLOWED_AUGMENTATION = {
+    "hsv_h", "hsv_s", "hsv_v", "fliplr", "mosaic", "scale",
+    "degrees", "translate", "shear", "perspective", "flipud", "mixup",
+    "copy_paste", "crop_fraction",
+}
 ALLOWED_TRAINING = {
     "epochs", "batch_size", "optimizer", "lr0", "weight_decay",
     "patience", "seed", "device", "notes",
@@ -104,8 +109,13 @@ def _validate_ranges(cfg: TrainingConfig) -> None:
     aug = cfg.augmentation
     for key in ALLOWED_AUGMENTATION:
         if key in aug:
-            _require(isinstance(aug[key], (int, float)) and aug[key] >= 0,
-                     f"augmentation.{key} must be a non-negative number")
+            value = aug[key]
+            _require(
+                type(value) in (int, float)
+                and (not isinstance(value, float) or math.isfinite(value))
+                and value >= 0,
+                f"augmentation.{key} must be a finite non-negative number",
+            )
 
     inf = cfg.inference
     _require(0 <= inf.get("confidence_threshold", -1) <= 1,

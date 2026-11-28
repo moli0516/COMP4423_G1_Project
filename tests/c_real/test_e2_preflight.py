@@ -19,7 +19,11 @@ def test_real_cli_probe_preserves_backend_settings(tmp_path, monkeypatch, has_ba
     monkeypatch.setitem(sys.modules, "ultralytics", backend)
     for folder in ("images/train", "images/val", "labels/train", "labels/val"):
         (tmp_path / folder).mkdir(parents=True)
-    (tmp_path / "dataset.yaml").write_text(f"path: {tmp_path.as_posix()}\n")
+    (tmp_path / "dataset.yaml").write_text(
+        f"path: {tmp_path.as_posix()}\n"
+        "train: images/train\n"
+        "val: images/val\n"
+    )
     config = json.loads((ROOT / "configs/experiments/baseline.json").read_bytes())
     config["training"]["device"] = "cpu"
     candidate = tmp_path / "candidate.json"
