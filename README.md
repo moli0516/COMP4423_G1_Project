@@ -65,7 +65,7 @@ backend name/version, the SHA-256 of the weights and dataset YAML, and a UTC
 timestamp. `--split test` is the held-out final run and is refused unless
 `--confirm-final-test` is passed; run it once, after the configuration is frozen.
 
-Build and verify a C source archive from a clean, committed Jerry-C checkout:
+Build and verify a C source archive from a clean, committed Jerry-C or feat/c-e0-detector-integration checkout (the packager currently accepts these two branches):
 
 ```powershell
 .\.venv\Scripts\python.exe -B scripts/package_c_release.py --output runs/C_Source_NEW.zip
@@ -115,4 +115,16 @@ The class order is bottle, cup, keyboard, mouse, book, scissors. B reports movem
 
 ## Git
 
-PR #9 merged the original C application. PR #10 integrates A's shared detector and trainer through commit `44e2322`. Keep the weights, photo releases and per-run outputs outside Git.
+Status as of 2026-11-28 (after PR #14 merged):
+
+- [PR #9](https://github.com/moli0516/COMP4423_G1_Project/pull/9) (Jerry-C): original Part C application, merged.
+- [PR #10](https://github.com/moli0516/COMP4423_G1_Project/pull/10): E0 detector/trainer integration across UI, CLI and batch, merged.
+- [PR #12](https://github.com/moli0516/COMP4423_G1_Project/pull/12): isolated detector mAP evaluator, merged.
+- [PR #13](https://github.com/moli0516/COMP4423_G1_Project/pull/13): split-specific evaluation manifests, merged.
+- [PR #14](https://github.com/moli0516/COMP4423_G1_Project/pull/14): read-only evaluation error analysis, merged.
+- [PR #8](https://github.com/moli0516/COMP4423_G1_Project/pull/8): A's data pipeline/contracts work, still open.
+- [PR #11](https://github.com/moli0516/COMP4423_G1_Project/pull/11): E1 experimental draft, not for merge.
+
+Use the updated main as the base for new integration work. A merged PR is
+not evidence of final runtime acceptance or held-out evaluation. Keep the
+weights, photo releases and per-run outputs outside Git.
