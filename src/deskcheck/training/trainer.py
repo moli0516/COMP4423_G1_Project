@@ -317,7 +317,7 @@ def train(
         dataset_yaml=str(dataset_yaml),
         dataset_release=cfg.data["dataset_release"],
         split_seed=cfg.data["split_seed"],
-        training_manifest_sha256=sha256_file(dataset_yaml),
+        dataset_yaml_sha256=sha256_file(dataset_yaml),
         epochs_requested=cfg.training["epochs"],
         epochs_completed=epochs_completed,
         selected_epoch=(selected_epoch if selected_epoch is not None else -1),

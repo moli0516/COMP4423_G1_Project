@@ -25,7 +25,7 @@ def _find_photo() -> Path | None:
     if env_path and Path(env_path).exists():
         return Path(env_path)
     candidates = [
-        Path("data/formal_photos/G01P1_before.jpg"),
+        REPO_ROOT / "data" / "formal_photos" / "G01P1_before.jpg",
         Path.home() / "Documents" / "CV Group" / "data" / "formal_photos" / "G01P1_before.jpg",
     ]
     for c in candidates:

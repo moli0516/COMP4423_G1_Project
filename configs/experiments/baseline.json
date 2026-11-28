@@ -48,5 +48,5 @@
   "outputs": {
     "run_dir": "runs/experiments/E0_baseline"
   },
-  "notes": "Placeholder hyperparameters; freeze after first successful run."
+  "notes": "Values frozen after first successful E0 run. Confidence threshold and NMS IoU reflect validation-only tuning (0.20 / 0.35). See runs/experiments/E0_baseline/artifact.json for full provenance."
 }

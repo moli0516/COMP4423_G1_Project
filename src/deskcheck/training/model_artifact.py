@@ -33,7 +33,7 @@ class ModelArtifact:
     dataset_yaml: str
     dataset_release: str
     split_seed: int
-    training_manifest_sha256: str
+    dataset_yaml_sha256: str  # SHA256 of dataset.yaml (renamed from training_manifest_sha256 for clarity)
 
     # Training
     epochs_requested: int
@@ -56,6 +56,14 @@ class ModelArtifact:
     torch_version: str
     python_version: str
     resolved_config: dict = field(default_factory=dict)
+
+    # Post-hoc provenance annotations (added by scripts/finalize_artifact.py)
+    # None means "not annotated". These are NOT written by trainer.py.
+    resolved_config_at_training: dict | None = None
+    inference_at_training: dict | None = None
+    frozen_note: str | None = None
+    resolved_config_note: str | None = None
+    post_hoc_annotation: dict | None = None  # {"applied_at": str, "applied_by": str, "reason": str}
 
     def to_dict(self) -> dict:
         """JSON-serializable dict. Paths become strings."""
